@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -14,12 +15,16 @@ var (
 	udp     = flag.Bool("udp", false, "start UDP server")
 	listen  = flag.String("listen", "[::]:1337", "ip:port to listen on")
 	verbose = flag.Bool("verbose", false, "enable verbose logging")
+	timeout = flag.Duration("timeout", time.Second*30, "amount of time for each connection")
 )
 
 var (
 	g   *errgroup.Group
 	ctx context.Context
 )
+
+var magicString = "portquiz"
+var magicStringBytes = []byte(magicString)
 
 func main() {
 	flag.Parse()
