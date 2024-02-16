@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
 	"fmt"
 	"log"
 	"net"
@@ -34,28 +34,23 @@ func tcpServer() error {
 func handleTCPConnection(c *net.TCPConn) {
 	kind := "TCP"
 	defer c.Close()
-	check(c.SetNoDelay(false))
+	check(c.SetNoDelay(true))
 	check(c.SetDeadline(time.Now().Add(*timeout)))
 
 	fmt.Printf("Serving %s %s\n", kind, c.RemoteAddr())
 
-	scanner := bufio.NewScanner(c)
-	scanner.Buffer(make([]byte, len(magicString)*2), len(magicString)*2)
-	if scanner.Scan() {
-		got := scanner.Text()
-		if *verbose {
-			log.Printf("[%s], Gotdata from [%s]: %s", kind, c.RemoteAddr(), got)
-		}
-		if got == magicString {
-			if *verbose {
-				log.Printf("[%s] PORTQUIZ from %s", kind, c.RemoteAddr())
-			}
-			_, err := c.Write(magicStringBytes)
-			check(err)
-		}
+	buffer := make([]byte, 128)
+
+	n, err := c.Read(buffer)
+	check(err)
+	if *verbose {
+		log.Printf("[%s], Gotdata from [%s]: %s", kind, c.RemoteAddr(), buffer[:n])
 	}
-	if err := scanner.Err(); err != nil {
-		fmt.Printf("error from [%s]: %s", c.RemoteAddr(), err)
-		return
+	if bytes.HasPrefix(buffer[:n], magicStringBytes) {
+		if *verbose {
+			log.Printf("[%s] PORTQUIZ from %s", kind, c.RemoteAddr())
+		}
+		_, err := c.Write(magicStringBytes)
+		check(err)
 	}
 }

@@ -19,10 +19,10 @@ func udpServer() error {
 		return err
 	}
 	defer l.Close()
-	l.SetReadBuffer(len(magicString) * 2)
+	l.SetReadBuffer(len(magicStringBytes) * 2)
 	//check(l.SetDeadline(time.Now().Add(*timeout))) // TODO pretty sure this should not be here
 
-	buffer := make([]byte, 1024)
+	buffer := make([]byte, 128)
 
 	for {
 		n, remoteAddr, err := l.ReadFromUDP(buffer)
