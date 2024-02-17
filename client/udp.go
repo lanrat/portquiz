@@ -3,21 +3,16 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"syscall"
 	"time"
 )
 
-func udpClient() error {
-	isOpenUDP("1337")
-
-	return errors.New("TODO")
-}
-
-func isOpenUDP(port string) bool {
-	// seteup
-	udpaddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(server, port))
+func isOpenUDP(port int) bool {
+	// setup
+	udpaddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(server, fmt.Sprintf("%d", port)))
 	check(err)
 	conn, err := net.DialUDP("udp", nil, udpaddr)
 	check(err)
@@ -29,29 +24,35 @@ func isOpenUDP(port string) bool {
 
 	// send data
 	_, err = conn.Write(magicStringBytes)
-	check(err)
+	if err != nil && *verbose {
+		log.Printf("UDP write error: %s", err)
+		return false
+	}
 
-	// recieve data
+	// receive data
 	buffer := make([]byte, 128)
 	n, err := conn.Read(buffer)
 	if errors.Is(err, syscall.ECONNREFUSED) {
 		// port is closed
 		if *verbose {
-			log.Printf("UDP CLOSED %s", port)
+			log.Printf("UDP CLOSED %d", port)
 		}
 		return false
 	}
-	check(err)
+	if err != nil && *verbose {
+		log.Printf("UDP read error: %s", err)
+		return false
+	}
 
 	// check status
 	if bytes.HasPrefix(buffer[:n], magicStringBytes) {
 		if *verbose {
-			log.Printf("UDP OPEN %s", port)
+			log.Printf("UDP OPEN %d", port)
 		}
 		return true
 	} else {
 		if *verbose {
-			log.Printf("UDP, Gotdata: %s %s", port, buffer[:n])
+			log.Printf("UDP, Gotdata: %d %s", port, buffer[:n])
 		}
 	}
 

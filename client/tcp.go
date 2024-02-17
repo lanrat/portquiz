@@ -3,25 +3,24 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log"
 	"net"
+	"os"
 	"syscall"
 	"time"
 )
 
-func tcpClient() error {
-	isOpenTCP("1337")
-	return errors.New("TODO")
-}
-
-func isOpenTCP(port string) bool {
+func isOpenTCP(port int) bool {
 	// setup
-	tcpAddr, _ := net.ResolveTCPAddr("tcp", net.JoinHostPort(server, port))
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-	if errors.Is(err, syscall.ECONNREFUSED) {
+	tcpAddr, _ := net.ResolveTCPAddr("tcp", net.JoinHostPort(server, fmt.Sprintf("%d", port)))
+	d := net.Dialer{Timeout: *timeout}
+	connInterface, err := d.Dial("tcp", tcpAddr.String())
+	conn, _ := connInterface.(*net.TCPConn)
+	if errors.Is(err, syscall.ECONNREFUSED) || /*errors.Is(err, os.ErrDeadlineExceeded) ||*/ os.IsTimeout(err) {
 		// port is closed
 		if *verbose {
-			log.Printf("TCP OPEN %s", port)
+			log.Printf("TCP CLOSED %d", port)
 		}
 		return false
 	}
@@ -37,16 +36,22 @@ func isOpenTCP(port string) bool {
 	// send data
 	check(conn.SetWriteDeadline(time.Now().Add(*timeout)))
 	_, err = conn.Write(magicStringBytes)
-	check(err)
+	if err != nil && *verbose {
+		log.Printf("TCP write error: %s", err)
+		return false
+	}
 
-	// recieve data
+	// receive data
 	buffer := make([]byte, 128)
 	n, err := conn.Read(buffer)
-	check(err)
+	if err != nil && *verbose {
+		log.Printf("TCP read error: %s", err)
+		return false
+	}
 
 	if bytes.HasPrefix(buffer[:n], magicStringBytes) {
 		if *verbose {
-			log.Printf("TCP OPEN %s", port)
+			log.Printf("TCP OPEN %d", port)
 		}
 		return true
 	} else {

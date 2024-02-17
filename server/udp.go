@@ -26,7 +26,7 @@ func udpServer() error {
 
 	for {
 		n, remoteAddr, err := l.ReadFromUDP(buffer)
-		if err != nil {
+		if err != nil && *verbose {
 			log.Printf("UDP read error: %s", err)
 			continue
 		}
@@ -38,7 +38,7 @@ func udpServer() error {
 				log.Printf("[UDP] PORTQUIZ from %s", remoteAddr)
 			}
 			_, err = l.WriteToUDP(buffer[:n], remoteAddr)
-			if err != nil {
+			if err != nil && *verbose {
 				log.Printf("UDP write error to [%s]: %s", remoteAddr, err)
 				continue
 			}

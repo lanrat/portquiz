@@ -42,7 +42,10 @@ func handleTCPConnection(c *net.TCPConn) {
 	buffer := make([]byte, 128)
 
 	n, err := c.Read(buffer)
-	check(err)
+	if err != nil && *verbose {
+		log.Printf("TCP Read Error from %s: %s", c.RemoteAddr(), err)
+		return
+	}
 	if *verbose {
 		log.Printf("[%s], Gotdata from [%s]: %s", kind, c.RemoteAddr(), buffer[:n])
 	}
@@ -51,6 +54,9 @@ func handleTCPConnection(c *net.TCPConn) {
 			log.Printf("[%s] PORTQUIZ from %s", kind, c.RemoteAddr())
 		}
 		_, err := c.Write(magicStringBytes)
-		check(err)
+		if err != nil && *verbose {
+			log.Printf("TCP Write Error from %s: %s", c.RemoteAddr(), err)
+			return
+		}
 	}
 }
