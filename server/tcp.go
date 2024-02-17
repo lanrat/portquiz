@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"log"
 	"net"
 	"time"
@@ -37,7 +36,9 @@ func handleTCPConnection(c *net.TCPConn) {
 	check(c.SetNoDelay(true))
 	check(c.SetDeadline(time.Now().Add(*timeout)))
 
-	fmt.Printf("Serving %s %s\n", kind, c.RemoteAddr())
+	if *verbose {
+		log.Printf("Serving %s %s\n", kind, c.RemoteAddr())
+	}
 
 	buffer := make([]byte, 128)
 
