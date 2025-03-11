@@ -10,6 +10,15 @@ import (
 	"time"
 )
 
+func isOpenUDPMulti(port int) bool {
+	for try := uint(0); try < *multi; try++ {
+		if !isOpenUDP(port) {
+			return false
+		}
+	}
+	return true
+}
+
 func isOpenUDP(port int) bool {
 	// setup
 	udpaddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(server, fmt.Sprintf("%d", port)))
@@ -52,7 +61,7 @@ func isOpenUDP(port int) bool {
 		return true
 	} else {
 		if *verbose {
-			log.Printf("UDP, Gotdata: %d %s", port, buffer[:n])
+			log.Printf("UDP, Got data: %d %s", port, buffer[:n])
 		}
 	}
 

@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	tcp      = flag.Bool("tcp", false, "start TCP server")
-	udp      = flag.Bool("udp", false, "start UDP server")
+	tcp      = flag.Bool("tcp", false, "start TCP client")
+	udp      = flag.Bool("udp", false, "start UDP client")
 	verbose  = flag.Bool("verbose", false, "enable verbose logging")
 	timeout  = flag.Duration("timeout", time.Second*10, "amount of time for each connection")
 	retry    = flag.Uint("retry", 3, "retry count")
@@ -20,6 +20,7 @@ var (
 	open     = flag.Bool("open", false, "print only open ports")
 	closed   = flag.Bool("closed", false, "print only closed ports")
 	port     = flag.Int("port", -1, "test a single port") // TODO support range
+	multi = flag.Uint("multi", 1, "test multiple times to ensure larger streams work") // TODO actually send more data to/from server
 )
 
 var (

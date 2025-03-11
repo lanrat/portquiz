@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+func isOpenTCPMulti(port int) bool {
+	for try := uint(0); try < *multi; try++ {
+		if !isOpenTCP(port) {
+			return false
+		}
+	}
+	return true
+}
+
 func isOpenTCP(port int) bool {
 	// setup
 	tcpAddr, _ := net.ResolveTCPAddr("tcp", net.JoinHostPort(server, fmt.Sprintf("%d", port)))
@@ -56,7 +65,7 @@ func isOpenTCP(port int) bool {
 		return true
 	} else {
 		if *verbose {
-			log.Printf("TCP, Gotdata: %s", buffer[:n])
+			log.Printf("TCP, Got data: %s", buffer[:n])
 		}
 	}
 

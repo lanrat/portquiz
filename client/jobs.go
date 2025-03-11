@@ -72,13 +72,12 @@ func worker(ctx context.Context, jobs, results chan *job) error {
 
 			try := func() error {
 				switch j.kind {
-				// TODO retry
 				case "tcp":
-					if isOpenTCP(j.port) {
+					if isOpenTCPMulti(j.port) {
 						j.open = true
 					}
 				case "udp":
-					if isOpenUDP(j.port) {
+					if isOpenUDPMulti(j.port) {
 						j.open = true
 					}
 				default:
