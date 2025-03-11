@@ -36,6 +36,11 @@ func main() {
 
 	g, ctx = errgroup.WithContext(context.Background())
 
+	check(addFWRules())
+	defer func() {
+		check(cleanupFW())
+	}()
+
 	if *tcp {
 		g.Go(tcpServer)
 	}
