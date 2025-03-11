@@ -5,6 +5,8 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"os"
+	"os/signal"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -37,8 +39,15 @@ func main() {
 	g, ctx = errgroup.WithContext(context.Background())
 
 	check(addFWRules())
-	defer func() {
-		check(cleanupFW())
+	defer cleanup()
+
+	// setup fw cleanup if killed
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		cleanup()
+		os.Exit(0)
 	}()
 
 	if *tcp {
@@ -50,6 +59,10 @@ func main() {
 	}
 
 	check(g.Wait())
+}
+
+func cleanup() {
+	check(cleanupFW())
 }
 
 func check(err error) {

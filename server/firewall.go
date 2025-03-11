@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"net"
 
@@ -20,26 +21,27 @@ func init() {
 	}
 }
 
-func addFWRules() error {
-	ip, port, err := net.SplitHostPort(*listen)
-	if err != nil {
-		return err
-	}
-	ruleSpec := []string{
+func newRule(ip, port, proto string) []string {
+	return []string{
 		"--destination", ip,
-		"-p", "",
+		"-p", proto,
 		"-j", "DNAT",
 		"--to-destination", ":" + port, // Correctly format the destination
 		"-m", "comment",
 		"--comment", fwComment,
 	}
+}
+
+func addFWRules() error {
+	ip, port, err := net.SplitHostPort(*listen)
+	if err != nil {
+		return err
+	}
 	if *tcp {
-		ruleSpec[3] = "tcp"
-		fwRules = append(fwRules, ruleSpec)
+		fwRules = append(fwRules, newRule(ip, port, "tcp"))
 	}
 	if *udp {
-		ruleSpec[3] = "udp"
-		fwRules = append(fwRules, ruleSpec)
+		fwRules = append(fwRules, newRule(ip, port, "udp"))
 	}
 	for _, rule := range fwRules {
 		if *verbose {
@@ -54,14 +56,18 @@ func addFWRules() error {
 }
 
 func cleanupFW() error {
+	var err error
 	for _, rule := range fwRules {
 		if *verbose {
 			log.Printf("Removing firewall rule %+v", rule)
 		}
-		err := ipt.Delete("nat", "PREROUTING", rule...)
+		err2 := ipt.Delete("nat", "PREROUTING", rule...)
 		if err != nil {
-			return err
+			if *verbose {
+				log.Printf("Error: %s", err2)
+			}
+			err = errors.Join(err, err2)
 		}
 	}
-	return nil
+	return err
 }
