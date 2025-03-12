@@ -2,8 +2,9 @@
 
 # portquiz
 
-takes about 6min for all ports
+Test all outbound TCP/UDP ports for connectivity to a remote host.
 
+Testing all ports takes about 10min for all ports.
 
 ## Server
 
@@ -18,8 +19,13 @@ PORT="1337"
 ./portquiz-server -tcp -udp -listen "$IP:$PORT"
 ```
 
-# TODO
+## Client
 
-* automatic firewall rule creation
-* support testing variable packet/stream size to see if there is a bandwith or packet size cutoff
+```shell
+./portquiz-client -tcp -udp -open "$IP"
+```
+
+## TODO
+
+* better IPv6 Support
 
