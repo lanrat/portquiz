@@ -5,24 +5,30 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"net"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 )
 
 var (
-	tcp     = flag.Bool("tcp", false, "start TCP server")
-	udp     = flag.Bool("udp", false, "start UDP server")
-	listen  = flag.String("listen", "[::]:1337", "ip:port to listen on")
-	verbose = flag.Bool("verbose", false, "enable verbose logging")
-	timeout = flag.Duration("timeout", time.Second*10, "amount of time for each connection")
+	tcp        = flag.Bool("tcp", false, "start TCP server")
+	udp        = flag.Bool("udp", false, "start UDP server")
+	listenIPs  = flag.String("listen", "127.0.0.123", "comma separated list of IPs to listen on")
+	verbose    = flag.Bool("verbose", false, "enable verbose logging")
+	timeout    = flag.Duration("timeout", time.Second*10, "amount of time for each connection")
+	port       = flag.Uint("port", 1337, "default port to listen on which will have traffic redirected to")
+	noIPTables = flag.Bool("no-iptables", false, "disable automatically creating iptables rules")
 )
 
 var (
-	g   *errgroup.Group
-	ctx context.Context
+	g      *errgroup.Group
+	ctx    context.Context
+	listen string
 )
 
 var magicString = "portquiz"
@@ -38,31 +44,48 @@ func main() {
 
 	g, ctx = errgroup.WithContext(context.Background())
 
-	check(addFWRules())
-	defer cleanup()
-
 	// setup fw cleanup if killed
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
-		<-c
+		// run cleanup on context canceled or interupt
+		select {
+		case <-c:
+		case <-ctx.Done():
+		}
 		cleanup()
 		os.Exit(0)
 	}()
+	//defer cleanup()
 
-	if *tcp {
-		g.Go(tcpServer)
-	}
+	listenPort := strconv.FormatUint(uint64(*port), 10)
 
-	if *udp {
-		g.Go(udpServer)
+	for _, ip := range strings.Split(*listenIPs, ",") {
+		listen = net.JoinHostPort(ip, listenPort)
+
+		if !*noIPTables {
+			check(addFWRules(ip, listenPort))
+		}
+
+		if *tcp {
+			g.Go(func() error { return tcpServer(listen) })
+		}
+
+		if *udp {
+			g.Go(func() error { return udpServer(listen) })
+		}
 	}
 
 	check(g.Wait())
 }
 
 func cleanup() {
-	check(cleanupFW())
+	if *verbose {
+		log.Printf("Cleaning up for exit")
+	}
+	if !*noIPTables {
+		check(cleanupFW())
+	}
 }
 
 func check(err error) {

@@ -13,10 +13,9 @@ The server creates a firewall rule to redirect all incoming traffic to the liste
 ```shell
 # external IP on server
 IP="192.0.2.123"
-PORT="1337"
 
 # start server
-./portquiz-server -tcp -udp -listen "$IP:$PORT"
+./portquiz-server -tcp -udp -listen "$IP"
 ```
 
 ## Client
@@ -24,7 +23,3 @@ PORT="1337"
 ```shell
 ./portquiz-client -tcp -udp -open "$IP"
 ```
-
-## TODO
-
-* better IPv6 Support

@@ -2,24 +2,19 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net"
 
 	"github.com/coreos/go-iptables/iptables"
 )
 
-var ipt *iptables.IPTables
+var ip4t *iptables.IPTables
+var ip6t *iptables.IPTables
 
 var fwComment = magicString
-var fwRules [][]string
-
-func init() {
-	var err error
-	ipt, err = iptables.New()
-	if err != nil {
-		log.Fatalf("Failed to initialize iptables: %v", err)
-	}
-}
+var fw4Rules [][]string
+var fw6Rules [][]string
 
 func newRule(ip, port, proto string) []string {
 	return []string{
@@ -32,24 +27,61 @@ func newRule(ip, port, proto string) []string {
 	}
 }
 
-func addFWRules() error {
-	ip, port, err := net.SplitHostPort(*listen)
-	if err != nil {
-		return err
+func addFWRules(ip, port string) error {
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		// Not a valid IP address
+		return fmt.Errorf("%q is not a valid IP", ip)
 	}
-	if *tcp {
-		fwRules = append(fwRules, newRule(ip, port, "tcp"))
-	}
-	if *udp {
-		fwRules = append(fwRules, newRule(ip, port, "udp"))
-	}
-	for _, rule := range fwRules {
-		if *verbose {
-			log.Printf("Adding firewall rule %+v", rule)
-		}
-		err = ipt.Append("nat", "PREROUTING", rule...)
-		if err != nil {
+	if parsedIP.To4() != nil {
+		// IPv4
+		// init v4
+		if ip4t == nil {
+			var err error
+			ip4t, err = iptables.NewWithProtocol(iptables.ProtocolIPv4)
 			return err
+		}
+
+		// add rules
+		if *tcp {
+			fw4Rules = append(fw4Rules, newRule(ip, port, "tcp"))
+		}
+		if *udp {
+			fw4Rules = append(fw4Rules, newRule(ip, port, "udp"))
+		}
+		for _, rule := range fw4Rules {
+			if *verbose {
+				log.Printf("Adding firewall IPv4 rule %+v", rule)
+			}
+			err := ip4t.Append("nat", "PREROUTING", rule...)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		// IPv6
+		// init IPv6
+		if ip6t == nil {
+			var err error
+			ip6t, err = iptables.NewWithProtocol(iptables.ProtocolIPv6)
+			return err
+		}
+
+		// add rules
+		if *tcp {
+			fw6Rules = append(fw6Rules, newRule(ip, port, "tcp"))
+		}
+		if *udp {
+			fw6Rules = append(fw6Rules, newRule(ip, port, "udp"))
+		}
+		for _, rule := range fw6Rules {
+			if *verbose {
+				log.Printf("Adding firewall IPv6 rule %+v", rule)
+			}
+			err := ip6t.Append("nat", "PREROUTING", rule...)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -57,11 +89,23 @@ func addFWRules() error {
 
 func cleanupFW() error {
 	var err error
-	for _, rule := range fwRules {
+	for _, rule := range fw4Rules {
 		if *verbose {
-			log.Printf("Removing firewall rule %+v", rule)
+			log.Printf("Removing firewall IPv4 rule %+v", rule)
 		}
-		err2 := ipt.Delete("nat", "PREROUTING", rule...)
+		err2 := ip4t.Delete("nat", "PREROUTING", rule...)
+		if err != nil {
+			if *verbose {
+				log.Printf("Error: %s", err2)
+			}
+			err = errors.Join(err, err2)
+		}
+	}
+	for _, rule := range fw6Rules {
+		if *verbose {
+			log.Printf("Removing firewall IPv6 rule %+v", rule)
+		}
+		err2 := ip6t.Delete("nat", "PREROUTING", rule...)
 		if err != nil {
 			if *verbose {
 				log.Printf("Error: %s", err2)

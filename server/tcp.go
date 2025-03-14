@@ -8,8 +8,8 @@ import (
 )
 
 // TODO detect canceled context
-func tcpServer() error {
-	addr, err := net.ResolveTCPAddr("tcp", *listen)
+func tcpServer(listenAddr string) error {
+	addr, err := net.ResolveTCPAddr("tcp", listenAddr)
 	if err != nil {
 		return err
 	}
@@ -18,7 +18,7 @@ func tcpServer() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("starting TCP server on %s", *listen)
+	log.Printf("starting TCP server on %s", listenAddr)
 	defer l.Close()
 
 	for {

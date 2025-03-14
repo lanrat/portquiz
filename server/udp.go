@@ -7,9 +7,9 @@ import (
 )
 
 // TODO detect canceled context
-func udpServer() error {
-	log.Printf("starting UDP server on %s", *listen)
-	addr, err := net.ResolveUDPAddr("udp", *listen)
+func udpServer(listenAddr string) error {
+	log.Printf("starting UDP server on %s", listenAddr)
+	addr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
 		return err
 	}
