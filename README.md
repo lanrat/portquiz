@@ -23,3 +23,9 @@ IP="192.0.2.123"
 ```shell
 ./portquiz-client -tcp -udp -open "$IP"
 ```
+
+## TODO
+
+* force IPv4 vs IPv6
+* use domain names in client
+* fix conflicting fw rules with docker port forwards

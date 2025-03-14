@@ -39,7 +39,9 @@ func addFWRules(ip, port string) error {
 		if ip4t == nil {
 			var err error
 			ip4t, err = iptables.NewWithProtocol(iptables.ProtocolIPv4)
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		// add rules
@@ -64,7 +66,9 @@ func addFWRules(ip, port string) error {
 		if ip6t == nil {
 			var err error
 			ip6t, err = iptables.NewWithProtocol(iptables.ProtocolIPv6)
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		// add rules

@@ -26,9 +26,8 @@ var (
 )
 
 var (
-	g      *errgroup.Group
-	ctx    context.Context
-	listen string
+	g   *errgroup.Group
+	ctx context.Context
 )
 
 var magicString = "portquiz"
@@ -56,12 +55,11 @@ func main() {
 		cleanup()
 		os.Exit(0)
 	}()
-	//defer cleanup()
 
 	listenPort := strconv.FormatUint(uint64(*port), 10)
 
 	for _, ip := range strings.Split(*listenIPs, ",") {
-		listen = net.JoinHostPort(ip, listenPort)
+		listen := net.JoinHostPort(ip, listenPort)
 
 		if !*noIPTables {
 			check(addFWRules(ip, listenPort))
