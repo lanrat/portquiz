@@ -2,7 +2,7 @@
 
 Test all outbound TCP/UDP ports for connectivity to a remote host.
 
-Testing all ports takes about 10min for all ports.
+Testing all ports can take 3-10 minutes for all ports dependig on connection speed.
 
 Can also be used to detect passive DPI Firewalls that block traffic not looking like the expected service for a given port.
 
@@ -28,4 +28,3 @@ IP="192.0.2.123"
 
 * force IPv4 vs IPv6
 * use domain names in client
-* fix conflicting fw rules with docker port forwards
