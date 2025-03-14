@@ -15,7 +15,7 @@ var (
 	udp      = flag.Bool("udp", false, "start UDP client")
 	verbose  = flag.Bool("verbose", false, "enable verbose logging")
 	timeout  = flag.Duration("timeout", time.Second*5, "amount of time for each connection")
-	retry    = flag.Uint("retry", 1, "retry count")
+	retry    = flag.Uint("retry", 3, "retry count")
 	parallel = flag.Uint("parallel", 20, "number of worker threads")
 	open     = flag.Bool("open", false, "print only open ports")
 	closed   = flag.Bool("closed", false, "print only closed ports")
