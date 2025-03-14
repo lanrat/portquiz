@@ -16,6 +16,8 @@ var fwComment = magicString
 var fw4Rules [][]string
 var fw6Rules [][]string
 
+const insertRilePos = 1
+
 func newRule(ip, port, proto string) []string {
 	return []string{
 		"--destination", ip,
@@ -32,6 +34,11 @@ func addFWRules(ip, port string) error {
 	if parsedIP == nil {
 		// Not a valid IP address
 		return fmt.Errorf("%q is not a valid IP", ip)
+	}
+
+	if parsedIP.IsLoopback() {
+		// running on loopback interfaces is unsupported
+		return fmt.Errorf("%q is a loopback IP", ip)
 	}
 	if parsedIP.To4() != nil {
 		// IPv4
@@ -54,8 +61,13 @@ func addFWRules(ip, port string) error {
 		for _, rule := range fw4Rules {
 			if *verbose {
 				log.Printf("Adding firewall IPv4 rule %+v", rule)
+				docker, err := ip4t.ChainExists("nat", "DOCKER")
+				if err != nil {
+					return err
+				}
+				log.Printf("docker chain: %t", docker)
 			}
-			err := ip4t.Append("nat", "PREROUTING", rule...)
+			err := ip4t.InsertUnique("nat", "PREROUTING", insertRilePos, rule...)
 			if err != nil {
 				return err
 			}
@@ -82,7 +94,7 @@ func addFWRules(ip, port string) error {
 			if *verbose {
 				log.Printf("Adding firewall IPv6 rule %+v", rule)
 			}
-			err := ip6t.Append("nat", "PREROUTING", rule...)
+			err := ip6t.InsertUnique("nat", "PREROUTING", insertRilePos, rule...)
 			if err != nil {
 				return err
 			}
