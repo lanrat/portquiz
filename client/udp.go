@@ -21,9 +21,9 @@ func isOpenUDPMulti(port int) bool {
 
 func isOpenUDP(port int) bool {
 	// setup
-	udpaddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(server, fmt.Sprintf("%d", port)))
+	udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(server, fmt.Sprintf("%d", port)))
 	check(err)
-	conn, err := net.DialUDP("udp", nil, udpaddr)
+	conn, err := net.DialUDP("udp", nil, udpAddr)
 	check(err)
 	defer conn.Close()
 

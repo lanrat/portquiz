@@ -19,8 +19,8 @@ var (
 	parallel = flag.Uint("parallel", 20, "number of worker threads")
 	open     = flag.Bool("open", false, "print only open ports")
 	closed   = flag.Bool("closed", false, "print only closed ports")
-	port     = flag.Int("port", -1, "test a single port")                                 // TODO support range
-	multi    = flag.Uint("multi", 1, "test multiple times to ensure larger streams work") // TODO actually send more data to/from server
+	port     = flag.String("port", "", "comma separated list of ports to test")
+	multi    = flag.Uint("multi", 1, "test multiple times to ensure larger streams work")
 )
 
 var (

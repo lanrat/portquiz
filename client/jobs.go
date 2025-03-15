@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -18,11 +20,7 @@ var wg sync.WaitGroup
 func jobSource(ctx context.Context, jobs, results chan *job) error {
 	start := 1
 	end := maxPort
-	if *port != -1 {
-		start = *port
-		end = *port
-	}
-	for p := start; p <= end; p++ {
+	addJob := func(p int) error {
 		if *tcp {
 			jTCP := &job{
 				try:  0,
@@ -47,6 +45,30 @@ func jobSource(ctx context.Context, jobs, results chan *job) error {
 			case <-ctx.Done():
 				return nil
 			case jobs <- jUDP:
+			}
+		}
+		return nil
+	}
+	if *port == "" {
+		for p := start; p <= end; p++ {
+			err := addJob(p)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		ports := strings.Split(*port, ",")
+		for _, ps := range ports {
+			if ps == "" {
+				continue
+			}
+			p, err := strconv.Atoi(ps)
+			if err != nil {
+				return err
+			}
+			err = addJob(p)
+			if err != nil {
+				return err
 			}
 		}
 	}

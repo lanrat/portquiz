@@ -47,7 +47,7 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
-		// run cleanup on context canceled or interupt
+		// run cleanup on context canceled or interrupt
 		select {
 		case <-c:
 		case <-ctx.Done():
