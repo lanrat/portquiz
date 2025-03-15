@@ -4,7 +4,9 @@
     "dictionaryDefinitions": [],
     "dictionaries": [],
     "words": [
-        "portquiz"
+        "DNAT",
+        "portquiz",
+        "PREROUTING"
     ],
     "ignoreWords": [],
     "import": []

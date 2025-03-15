@@ -59,14 +59,6 @@ func addFWRules(ip, port string) error {
 			fw4Rules = append(fw4Rules, newRule(ip, port, "udp"))
 		}
 		for _, rule := range fw4Rules {
-			if *verbose {
-				log.Printf("Adding firewall IPv4 rule %+v", rule)
-				docker, err := ip4t.ChainExists("nat", "DOCKER")
-				if err != nil {
-					return err
-				}
-				log.Printf("docker chain: %t", docker)
-			}
 			err := ip4t.InsertUnique("nat", "PREROUTING", insertRilePos, rule...)
 			if err != nil {
 				return err

@@ -59,6 +59,9 @@ func main() {
 	listenPort := strconv.FormatUint(uint64(*port), 10)
 
 	for _, ip := range strings.Split(*listenIPs, ",") {
+		if ip == "" {
+			continue
+		}
 		listen := net.JoinHostPort(ip, listenPort)
 
 		if !*noIPTables {
