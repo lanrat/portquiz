@@ -10,20 +10,20 @@ import (
 	"time"
 )
 
-func isOpenUDPMulti(port int) bool {
+func isOpenUDPMulti(port int, network string) bool {
 	for try := uint(0); try < *multi; try++ {
-		if !isOpenUDP(port) {
+		if !isOpenUDP(port, network) {
 			return false
 		}
 	}
 	return true
 }
 
-func isOpenUDP(port int) bool {
+func isOpenUDP(port int, network string) bool {
 	// setup
-	udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(server, fmt.Sprintf("%d", port)))
+	udpAddr, err := net.ResolveUDPAddr(network, net.JoinHostPort(server, fmt.Sprintf("%d", port)))
 	check(err)
-	conn, err := net.DialUDP("udp", nil, udpAddr)
+	conn, err := net.DialUDP(network, nil, udpAddr)
 	check(err)
 	defer conn.Close()
 
@@ -34,7 +34,7 @@ func isOpenUDP(port int) bool {
 	// send data
 	_, err = conn.Write(magicStringBytes)
 	if err != nil && *verbose {
-		log.Printf("UDP write error: %s", err)
+		log.Printf("%s write error: %s", network, err)
 		return false
 	}
 
@@ -44,24 +44,24 @@ func isOpenUDP(port int) bool {
 	if errors.Is(err, syscall.ECONNREFUSED) {
 		// port is closed
 		if *verbose {
-			log.Printf("UDP CLOSED %d", port)
+			log.Printf("%s CLOSED %d", network, port)
 		}
 		return false
 	}
 	if err != nil && *verbose {
-		log.Printf("UDP read error: %s", err)
+		log.Printf("%s read error: %s", network, err)
 		return false
 	}
 
 	// check status
 	if bytes.HasPrefix(buffer[:n], magicStringBytes) {
 		if *verbose {
-			log.Printf("UDP OPEN %d", port)
+			log.Printf("%s OPEN %d", network, port)
 		}
 		return true
 	} else {
 		if *verbose {
-			log.Printf("UDP, Got data: %d %s", port, buffer[:n])
+			log.Printf("%s, Got data: %d %s", network, port, buffer[:n])
 		}
 	}
 

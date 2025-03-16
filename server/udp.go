@@ -20,7 +20,6 @@ func udpServer(listenAddr string) error {
 	}
 	defer l.Close()
 	l.SetReadBuffer(len(magicStringBytes) * 2)
-	//check(l.SetDeadline(time.Now().Add(*timeout))) // TODO pretty sure this should not be here
 
 	buffer := make([]byte, 128)
 

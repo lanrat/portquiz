@@ -11,25 +11,25 @@ import (
 	"time"
 )
 
-func isOpenTCPMulti(port int) bool {
+func isOpenTCPMulti(port int, network string) bool {
 	for try := uint(0); try < *multi; try++ {
-		if !isOpenTCP(port) {
+		if !isOpenTCP(port, network) {
 			return false
 		}
 	}
 	return true
 }
 
-func isOpenTCP(port int) bool {
+func isOpenTCP(port int, network string) bool {
 	// setup
-	tcpAddr, _ := net.ResolveTCPAddr("tcp", net.JoinHostPort(server, fmt.Sprintf("%d", port)))
+	tcpAddr, _ := net.ResolveTCPAddr(network, net.JoinHostPort(server, fmt.Sprintf("%d", port)))
 	d := net.Dialer{Timeout: *timeout}
-	connInterface, err := d.Dial("tcp", tcpAddr.String())
+	connInterface, err := d.Dial(network, tcpAddr.String())
 	conn, _ := connInterface.(*net.TCPConn)
 	if errors.Is(err, syscall.ECONNREFUSED) || /*errors.Is(err, os.ErrDeadlineExceeded) ||*/ os.IsTimeout(err) {
 		// port is closed
 		if *verbose {
-			log.Printf("TCP CLOSED %d", port)
+			log.Printf("%s CLOSED %d", network, port)
 		}
 		return false
 	}
@@ -46,7 +46,7 @@ func isOpenTCP(port int) bool {
 	check(conn.SetWriteDeadline(time.Now().Add(*timeout)))
 	_, err = conn.Write(magicStringBytes)
 	if err != nil && *verbose {
-		log.Printf("TCP write error: %s", err)
+		log.Printf("%s write error: %s", network, err)
 		return false
 	}
 
@@ -54,18 +54,18 @@ func isOpenTCP(port int) bool {
 	buffer := make([]byte, 128)
 	n, err := conn.Read(buffer)
 	if err != nil && *verbose {
-		log.Printf("TCP read error: %s", err)
+		log.Printf("%s read error: %s", network, err)
 		return false
 	}
 
 	if bytes.HasPrefix(buffer[:n], magicStringBytes) {
 		if *verbose {
-			log.Printf("TCP OPEN %d", port)
+			log.Printf("%s OPEN %d", network, port)
 		}
 		return true
 	} else {
 		if *verbose {
-			log.Printf("TCP, Got data: %s", buffer[:n])
+			log.Printf("%s, Got data: %s", network, buffer[:n])
 		}
 	}
 

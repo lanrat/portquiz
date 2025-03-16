@@ -17,41 +17,63 @@ type job struct {
 
 var wg sync.WaitGroup
 
+/*
+00 = tcp
+01 = tcp6
+10 = tcp4
+11 = tcp4,tcp6
+*/
+func versions() []string {
+	if !*ipv4 && !*ipv6 {
+		return []string{""}
+	}
+	if *ipv4 && !*ipv6 {
+		return []string{"4"}
+	}
+	if !*ipv4 && *ipv6 {
+		return []string{"6"}
+	}
+	return []string{"4", "6"}
+}
+
 func jobSource(ctx context.Context, jobs, results chan *job) error {
 	start := 1
 	end := maxPort
-	addJob := func(p int) error {
-		if *tcp {
-			jTCP := &job{
-				try:  0,
-				kind: "tcp",
-				port: p,
+	addJob := func(p int, ver []string) error {
+		for _, v := range ver {
+			if *tcp {
+				jTCP := &job{
+					try:  0,
+					kind: "tcp" + v,
+					port: p,
+				}
+				wg.Add(1)
+				select {
+				case <-ctx.Done():
+					return nil
+				case jobs <- jTCP:
+				}
 			}
-			wg.Add(1)
-			select {
-			case <-ctx.Done():
-				return nil
-			case jobs <- jTCP:
-			}
-		}
-		if *udp {
-			jUDP := &job{
-				try:  0,
-				kind: "udp",
-				port: p,
-			}
-			wg.Add(1)
-			select {
-			case <-ctx.Done():
-				return nil
-			case jobs <- jUDP:
+			if *udp {
+				jUDP := &job{
+					try:  0,
+					kind: "udp" + v,
+					port: p,
+				}
+				wg.Add(1)
+				select {
+				case <-ctx.Done():
+					return nil
+				case jobs <- jUDP:
+				}
 			}
 		}
 		return nil
 	}
+	ver := versions()
 	if *port == "" {
 		for p := start; p <= end; p++ {
-			err := addJob(p)
+			err := addJob(p, ver)
 			if err != nil {
 				return err
 			}
@@ -66,7 +88,7 @@ func jobSource(ctx context.Context, jobs, results chan *job) error {
 			if err != nil {
 				return err
 			}
-			err = addJob(p)
+			err = addJob(p, ver)
 			if err != nil {
 				return err
 			}
@@ -93,13 +115,13 @@ func worker(ctx context.Context, jobs, results chan *job) error {
 			}
 
 			try := func() error {
-				switch j.kind {
-				case "tcp":
-					if isOpenTCPMulti(j.port) {
+				switch {
+				case strings.HasPrefix(j.kind, "tcp"):
+					if isOpenTCPMulti(j.port, j.kind) {
 						j.open = true
 					}
-				case "udp":
-					if isOpenUDPMulti(j.port) {
+				case strings.HasPrefix(j.kind, "udp"):
+					if isOpenUDPMulti(j.port, j.kind) {
 						j.open = true
 					}
 				default:
