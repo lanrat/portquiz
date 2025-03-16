@@ -16,13 +16,14 @@ import (
 )
 
 var (
-	tcp        = flag.Bool("tcp", false, "start TCP server")
-	udp        = flag.Bool("udp", false, "start UDP server")
-	listenIPs  = flag.String("listen", "127.0.0.123", "comma separated list of IPs to listen on")
-	verbose    = flag.Bool("verbose", false, "enable verbose logging")
-	timeout    = flag.Duration("timeout", time.Second*10, "amount of time for each connection")
-	port       = flag.Uint("port", 1337, "default port to listen on which will have traffic redirected to")
-	noIPTables = flag.Bool("no-iptables", false, "disable automatically creating iptables rules")
+	tcp         = flag.Bool("tcp", false, "start TCP server")
+	udp         = flag.Bool("udp", false, "start UDP server")
+	listenIPs   = flag.String("listen", "127.0.0.123", "comma separated list of IPs to listen on")
+	verbose     = flag.Bool("verbose", false, "enable verbose logging")
+	timeout     = flag.Duration("timeout", time.Second*10, "amount of time for each connection")
+	port        = flag.Uint("port", 1337, "default port to listen on which will have traffic redirected to")
+	noIPTables  = flag.Bool("no-iptables", false, "disable automatically creating iptables rules")
+	magicString = flag.String("password", "portquiz", "magicString to use, must be the same on client/server")
 )
 
 var (
@@ -30,11 +31,11 @@ var (
 	ctx context.Context
 )
 
-var magicString = "portquiz"
-var magicStringBytes = []byte(magicString)
+var magicStringBytes []byte
 
 func main() {
 	flag.Parse()
+	magicStringBytes = []byte(*magicString)
 
 	if !*tcp && !*udp {
 		err := errors.New("must set TCP and/or UDP")

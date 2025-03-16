@@ -23,4 +23,3 @@ IP="192.0.2.123"
 ```shell
 ./portquiz-client -tcp -udp -open "$IP"
 ```
-

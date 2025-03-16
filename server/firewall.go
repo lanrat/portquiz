@@ -12,13 +12,13 @@ import (
 var ip4t *iptables.IPTables
 var ip6t *iptables.IPTables
 
-var fwComment = magicString
 var fw4Rules [][]string
 var fw6Rules [][]string
 
 const insertRilePos = 1
 
 func newRule(ip, port, proto string) []string {
+	fwComment := *magicString
 	return []string{
 		"--destination", ip,
 		"-p", proto,

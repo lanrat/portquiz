@@ -11,18 +11,19 @@ import (
 )
 
 var (
-	tcp      = flag.Bool("tcp", false, "start TCP client")
-	udp      = flag.Bool("udp", false, "start UDP client")
-	verbose  = flag.Bool("verbose", false, "enable verbose logging")
-	timeout  = flag.Duration("timeout", time.Second*5, "amount of time for each connection")
-	retry    = flag.Uint("retry", 3, "retry count")
-	parallel = flag.Uint("parallel", 20, "number of worker threads")
-	open     = flag.Bool("open", false, "print only open ports")
-	closed   = flag.Bool("closed", false, "print only closed ports")
-	port     = flag.String("port", "", "comma separated list of ports to test")
-	multi    = flag.Uint("multi", 1, "test multiple times to ensure larger streams work")
-	ipv4     = flag.Bool("4", false, "force IPv4")
-	ipv6     = flag.Bool("6", false, "force IPv6")
+	tcp         = flag.Bool("tcp", false, "start TCP client")
+	udp         = flag.Bool("udp", false, "start UDP client")
+	verbose     = flag.Bool("verbose", false, "enable verbose logging")
+	timeout     = flag.Duration("timeout", time.Second*5, "amount of time for each connection")
+	retry       = flag.Uint("retry", 3, "retry count")
+	parallel    = flag.Uint("parallel", 20, "number of worker threads")
+	open        = flag.Bool("open", false, "print only open ports")
+	closed      = flag.Bool("closed", false, "print only closed ports")
+	port        = flag.String("port", "", "comma separated list of ports to test")
+	multi       = flag.Uint("multi", 1, "test multiple times to ensure larger streams work")
+	ipv4        = flag.Bool("4", false, "force IPv4")
+	ipv6        = flag.Bool("6", false, "force IPv6")
+	magicString = flag.String("password", "portquiz", "magicString to use, must be the same on client/server")
 )
 
 var (
@@ -31,13 +32,13 @@ var (
 	server string
 )
 
-var magicString = "portquiz"
-var magicStringBytes = []byte(magicString)
+var magicStringBytes []byte
 
 const maxPort = 65535
 
 func main() {
 	flag.Parse()
+	magicStringBytes = []byte(*magicString)
 
 	if flag.NArg() != 1 {
 		log.Fatalf("Pass IP/host to connect to")
