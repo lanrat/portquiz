@@ -27,12 +27,11 @@ var (
 )
 
 var (
-	g      *errgroup.Group
-	ctx    context.Context
-	server string
+	g                *errgroup.Group
+	ctx              context.Context
+	server           string
+	magicStringBytes []byte
 )
-
-var magicStringBytes []byte
 
 const maxPort = 65535
 

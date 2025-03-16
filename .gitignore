@@ -1,3 +1,5 @@
 portquiz
 portquiz-client
 portquiz-server
+# Added by goreleaser init:
+dist/

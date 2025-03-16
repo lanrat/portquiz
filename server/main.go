@@ -27,11 +27,10 @@ var (
 )
 
 var (
-	g   *errgroup.Group
-	ctx context.Context
+	g                *errgroup.Group
+	ctx              context.Context
+	magicStringBytes []byte
 )
-
-var magicStringBytes []byte
 
 func main() {
 	flag.Parse()

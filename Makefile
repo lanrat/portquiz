@@ -9,7 +9,7 @@ update-deps:
 	go mod tidy
 
 clean:
-	rm -rf portquiz client server
+	rm -rf portquiz client server dist/
 
 fmt:
 	gofmt -s -w -l .
@@ -19,3 +19,6 @@ portquiz-client: go.mod go.sum client/*go
 
 portquiz-server: go.mod go.sum server/*go
 	go build -o $@ server/*.go
+
+release:
+	goreleaser build --snapshot --clean
