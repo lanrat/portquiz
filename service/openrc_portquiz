@@ -1,0 +1,13 @@
+#!/sbin/openrc-run
+name="portquiz"
+description="PortQuiz Server"
+command="/usr/local/bin/portquiz-server-service.sh"
+command_background=true
+pidfile="/run/portquiz.pid"
+output_log="/var/log/portquiz.log"
+error_log="/var/log/portquiz.log"
+
+depend() {
+# For a media server example, this will require the network to be online
+    need net
+}
