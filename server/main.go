@@ -74,11 +74,11 @@ func main() {
 		}
 
 		if *tcp {
-			g.Go(func() error { return tcpServer(listen) })
+			g.Go(func() error { return tcpServer(ctx, listen) })
 		}
 
 		if *udp {
-			g.Go(func() error { return udpServer(listen) })
+			g.Go(func() error { return udpServer(ctx, listen) })
 		}
 	}
 

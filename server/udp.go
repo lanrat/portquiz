@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"log"
 	"net"
 )
@@ -11,7 +12,7 @@ import (
 // udpServer starts a UDP server on the specified address and handles incoming packets.
 // It reads packets in a loop and responds to those containing the magic string.
 // TODO: detect canceled context
-func udpServer(listenAddr string) error {
+func udpServer(ctx context.Context, listenAddr string) error {
 	log.Printf("starting UDP server on %s", listenAddr)
 	addr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
@@ -33,10 +34,26 @@ func udpServer(listenAddr string) error {
 
 	buffer := make([]byte, 128)
 
+	// Start a goroutine to handle context cancellation
+	go func() {
+		<-ctx.Done()
+		if err := l.Close(); err != nil {
+			log.Printf("UDP listener close on context cancel error: %s", err)
+		}
+	}()
+
 	for {
 		n, remoteAddr, err := l.ReadFromUDP(buffer)
-		if err != nil && *verbose {
-			log.Printf("UDP read error: %s", err)
+		if err != nil {
+			// Check if context was cancelled
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			if *verbose {
+				log.Printf("UDP read error: %s", err)
+			}
 			continue
 		}
 		if *verbose {

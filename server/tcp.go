@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"log"
 	"net"
 	"time"
@@ -12,7 +13,7 @@ import (
 // tcpServer starts a TCP server on the specified address and handles incoming connections.
 // It accepts connections in a loop and spawns goroutines to handle each connection.
 // TODO: detect canceled context
-func tcpServer(listenAddr string) error {
+func tcpServer(ctx context.Context, listenAddr string) error {
 	addr, err := net.ResolveTCPAddr("tcp", listenAddr)
 	if err != nil {
 		return err
@@ -29,9 +30,23 @@ func tcpServer(listenAddr string) error {
 		}
 	}()
 
+	// Start a goroutine to handle context cancellation
+	go func() {
+		<-ctx.Done()
+		if err := l.Close(); err != nil {
+			log.Printf("TCP listener close on context cancel error: %s", err)
+		}
+	}()
+
 	for {
 		c, err := l.AcceptTCP()
 		if err != nil {
+			// Check if context was cancelled
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
 			return err
 		}
 		go handleTCPConnection(c)
@@ -62,7 +77,7 @@ func handleTCPConnection(c *net.TCPConn) {
 		return
 	}
 	if *verbose {
-		log.Printf("[%s], Gotdata from [%s]: %s", kind, c.RemoteAddr(), buffer[:n])
+		log.Printf("[%s], Got data from [%s]: %s", kind, c.RemoteAddr(), buffer[:n])
 	}
 	if bytes.HasPrefix(buffer[:n], magicStringBytes) {
 		if *verbose {
