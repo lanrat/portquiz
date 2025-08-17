@@ -1,3 +1,5 @@
+// Package main provides job management and worker functionality for the portquiz client.
+// It handles the creation, distribution, and processing of port testing jobs.
 package main
 
 import (
@@ -8,21 +10,23 @@ import (
 	"sync"
 )
 
+// job represents a single port testing task.
 type job struct {
-	try  uint
-	kind string
-	port int
-	open bool
+	try  uint   // Current retry attempt number
+	kind string // Protocol and IP version (e.g., "tcp4", "udp6")
+	port int    // Port number to test
+	open bool   // Whether the port was found to be open
 }
 
+// wg tracks all active jobs to ensure proper shutdown.
 var wg sync.WaitGroup
 
-/*
-00 = tcp
-01 = tcp6
-10 = tcp4
-11 = tcp4,tcp6
-*/
+// versions returns the IP version suffixes to use based on command line flags.
+// Returns:
+//   - [""] for default (both IPv4 and IPv6)
+//   - ["4"] for IPv4 only
+//   - ["6"] for IPv6 only
+//   - ["4", "6"] for both explicitly
 func versions() []string {
 	if !*ipv4 && !*ipv6 {
 		return []string{""}
@@ -36,6 +40,8 @@ func versions() []string {
 	return []string{"4", "6"}
 }
 
+// jobSource generates port testing jobs and sends them to the jobs channel.
+// It creates jobs for the specified port range or individual ports based on command line arguments.
 func jobSource(ctx context.Context, jobs, results chan *job) error {
 	start := 1
 	end := maxPort
@@ -102,6 +108,8 @@ func jobSource(ctx context.Context, jobs, results chan *job) error {
 	return nil
 }
 
+// worker processes jobs from the jobs channel and sends results to the results channel.
+// It performs the actual port connectivity tests and retries failed attempts.
 func worker(ctx context.Context, jobs, results chan *job) error {
 	//var a sync.WaitGroup
 	for {
@@ -142,6 +150,8 @@ func worker(ctx context.Context, jobs, results chan *job) error {
 	}
 }
 
+// jobResults processes completed jobs from the results channel and prints the output.
+// It formats and displays the results based on the open/closed flags.
 func jobResults(ctx context.Context, results chan *job) error {
 	for {
 		select {

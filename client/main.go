@@ -1,3 +1,5 @@
+// Package main implements a portquiz client that tests port connectivity to a remote server.
+// It supports both TCP and UDP protocols and can test specific ports or scan ranges.
 package main
 
 import (
@@ -33,8 +35,11 @@ var (
 	magicStringBytes []byte
 )
 
+// maxPort defines the maximum valid port number.
 const maxPort = 65535
 
+// main initializes the client, parses arguments, and starts the port testing workflow.
+// It sets up worker goroutines and manages the job queue for testing ports.
 func main() {
 	flag.Parse()
 	magicStringBytes = []byte(*magicString)
@@ -81,6 +86,7 @@ func main() {
 
 }
 
+// check logs a fatal error and exits the program if err is not nil.
 func check(err error) {
 	if err != nil {
 		log.Fatal(err)

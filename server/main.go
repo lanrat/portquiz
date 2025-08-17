@@ -1,3 +1,6 @@
+// Package main implements a portquiz server that listens on specified TCP and UDP ports.
+// It automatically creates iptables rules to redirect traffic and responds to clients
+// with a magic string to confirm port accessibility.
 package main
 
 import (
@@ -32,6 +35,8 @@ var (
 	magicStringBytes []byte
 )
 
+// main initializes and starts the portquiz server with the specified configuration.
+// It sets up signal handling for cleanup, creates firewall rules, and starts TCP/UDP servers.
 func main() {
 	flag.Parse()
 	magicStringBytes = []byte(*magicString)
@@ -80,6 +85,7 @@ func main() {
 	check(g.Wait())
 }
 
+// cleanup removes all firewall rules created by the server and performs shutdown tasks.
 func cleanup() {
 	if *verbose {
 		log.Printf("Cleaning up for exit")
@@ -89,6 +95,7 @@ func cleanup() {
 	}
 }
 
+// check logs a fatal error and exits the program if err is not nil.
 func check(err error) {
 	if err != nil {
 		log.Fatal(err)

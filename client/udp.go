@@ -1,3 +1,5 @@
+// Package main provides UDP connectivity testing functionality for the portquiz client.
+// It implements functions to test if UDP ports are open on a remote server.
 package main
 
 import (
@@ -10,6 +12,8 @@ import (
 	"time"
 )
 
+// isOpenUDPMulti tests a UDP port multiple times to ensure reliability.
+// It returns true only if all attempts succeed, false if any attempt fails.
 func isOpenUDPMulti(port int, network string) bool {
 	for try := uint(0); try < *multi; try++ {
 		if !isOpenUDP(port, network) {
@@ -19,6 +23,8 @@ func isOpenUDPMulti(port int, network string) bool {
 	return true
 }
 
+// isOpenUDP tests if a single UDP port is open on the remote server.
+// It sends the magic string via UDP and checks for a valid response.
 func isOpenUDP(port int, network string) bool {
 	// setup
 	udpAddr, err := net.ResolveUDPAddr(network, net.JoinHostPort(server, fmt.Sprintf("%d", port)))

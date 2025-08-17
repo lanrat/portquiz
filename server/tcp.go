@@ -1,3 +1,5 @@
+// Package main provides TCP server functionality for the portquiz server.
+// It handles incoming TCP connections and responds with the magic string when detected.
 package main
 
 import (
@@ -7,7 +9,9 @@ import (
 	"time"
 )
 
-// TODO detect canceled context
+// tcpServer starts a TCP server on the specified address and handles incoming connections.
+// It accepts connections in a loop and spawns goroutines to handle each connection.
+// TODO: detect canceled context
 func tcpServer(listenAddr string) error {
 	addr, err := net.ResolveTCPAddr("tcp", listenAddr)
 	if err != nil {
@@ -30,6 +34,8 @@ func tcpServer(listenAddr string) error {
 	}
 }
 
+// handleTCPConnection processes a single TCP connection.
+// It reads data from the connection, checks for the magic string, and responds accordingly.
 func handleTCPConnection(c *net.TCPConn) {
 	kind := "TCP"
 	defer c.Close()

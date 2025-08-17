@@ -1,3 +1,5 @@
+// Package main provides UDP server functionality for the portquiz server.
+// It handles incoming UDP packets and responds with the magic string when detected.
 package main
 
 import (
@@ -6,7 +8,9 @@ import (
 	"net"
 )
 
-// TODO detect canceled context
+// udpServer starts a UDP server on the specified address and handles incoming packets.
+// It reads packets in a loop and responds to those containing the magic string.
+// TODO: detect canceled context
 func udpServer(listenAddr string) error {
 	log.Printf("starting UDP server on %s", listenAddr)
 	addr, err := net.ResolveUDPAddr("udp", listenAddr)

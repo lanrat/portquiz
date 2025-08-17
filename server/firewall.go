@@ -1,3 +1,5 @@
+// Package main provides firewall management functionality for the portquiz server.
+// It handles creation and cleanup of iptables rules for both IPv4 and IPv6.
 package main
 
 import (
@@ -9,14 +11,23 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 )
 
+// ip4t holds the IPv4 iptables instance for managing firewall rules.
 var ip4t *iptables.IPTables
+
+// ip6t holds the IPv6 iptables instance for managing firewall rules.
 var ip6t *iptables.IPTables
 
+// fw4Rules stores all IPv4 firewall rules created by the server for cleanup.
 var fw4Rules [][]string
+
+// fw6Rules stores all IPv6 firewall rules created by the server for cleanup.
 var fw6Rules [][]string
 
-const insertRilePos = 1
+// insertRulePos specifies the position where iptables rules should be inserted.
+const insertRulePos = 1
 
+// newRule creates a new iptables DNAT rule for the specified IP, port, and protocol.
+// It returns a slice of iptables rule arguments that can be used with the iptables library.
 func newRule(ip, port, proto string) []string {
 	fwComment := *magicString
 	return []string{
@@ -29,6 +40,8 @@ func newRule(ip, port, proto string) []string {
 	}
 }
 
+// addFWRules creates and applies iptables rules for the specified IP and port.
+// It supports both IPv4 and IPv6 addresses and creates rules for TCP and/or UDP based on flags.
 func addFWRules(ip, port string) error {
 	parsedIP := net.ParseIP(ip)
 	if parsedIP == nil {
@@ -59,7 +72,7 @@ func addFWRules(ip, port string) error {
 			fw4Rules = append(fw4Rules, newRule(ip, port, "udp"))
 		}
 		for _, rule := range fw4Rules {
-			err := ip4t.InsertUnique("nat", "PREROUTING", insertRilePos, rule...)
+			err := ip4t.InsertUnique("nat", "PREROUTING", insertRulePos, rule...)
 			if err != nil {
 				return err
 			}
@@ -86,7 +99,7 @@ func addFWRules(ip, port string) error {
 			if *verbose {
 				log.Printf("Adding firewall IPv6 rule %+v", rule)
 			}
-			err := ip6t.InsertUnique("nat", "PREROUTING", insertRilePos, rule...)
+			err := ip6t.InsertUnique("nat", "PREROUTING", insertRulePos, rule...)
 			if err != nil {
 				return err
 			}
@@ -95,6 +108,8 @@ func addFWRules(ip, port string) error {
 	return nil
 }
 
+// cleanupFW removes all iptables rules that were created by the server.
+// It attempts to remove both IPv4 and IPv6 rules and returns any accumulated errors.
 func cleanupFW() error {
 	var err error
 	for _, rule := range fw4Rules {

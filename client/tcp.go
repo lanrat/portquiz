@@ -1,3 +1,5 @@
+// Package main provides TCP connectivity testing functionality for the portquiz client.
+// It implements functions to test if TCP ports are open on a remote server.
 package main
 
 import (
@@ -11,6 +13,8 @@ import (
 	"time"
 )
 
+// isOpenTCPMulti tests a TCP port multiple times to ensure reliability.
+// It returns true only if all attempts succeed, false if any attempt fails.
 func isOpenTCPMulti(port int, network string) bool {
 	for try := uint(0); try < *multi; try++ {
 		if !isOpenTCP(port, network) {
@@ -20,6 +24,8 @@ func isOpenTCPMulti(port int, network string) bool {
 	return true
 }
 
+// isOpenTCP tests if a single TCP port is open on the remote server.
+// It connects to the port, sends the magic string, and checks for a valid response.
 func isOpenTCP(port int, network string) bool {
 	// setup
 	tcpAddr, _ := net.ResolveTCPAddr(network, net.JoinHostPort(server, fmt.Sprintf("%d", port)))
