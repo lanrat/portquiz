@@ -31,7 +31,11 @@ func isOpenUDP(port int, network string) bool {
 	check(err)
 	conn, err := net.DialUDP(network, nil, udpAddr)
 	check(err)
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil && *verbose {
+			log.Printf("UDP connection close error: %s", err)
+		}
+	}()
 
 	// tuning
 	check(conn.SetDeadline(time.Now().Add(*timeout)))

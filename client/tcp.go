@@ -40,7 +40,11 @@ func isOpenTCP(port int, network string) bool {
 		return false
 	}
 	check(err)
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil && *verbose {
+			log.Printf("TCP connection close error: %s", err)
+		}
+	}()
 
 	// setup
 	check(conn.SetDeadline(time.Now().Add(*timeout)))

@@ -22,8 +22,14 @@ func udpServer(listenAddr string) error {
 	if err != nil {
 		return err
 	}
-	defer l.Close()
-	l.SetReadBuffer(len(magicStringBytes) * 2)
+	defer func() {
+		if err := l.Close(); err != nil {
+			log.Printf("UDP listener close error: %s", err)
+		}
+	}()
+	if err := l.SetReadBuffer(len(magicStringBytes) * 2); err != nil && *verbose {
+		log.Printf("UDP SetReadBuffer error: %s", err)
+	}
 
 	buffer := make([]byte, 128)
 

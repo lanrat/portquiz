@@ -23,7 +23,11 @@ func tcpServer(listenAddr string) error {
 		return err
 	}
 	log.Printf("starting TCP server on %s", listenAddr)
-	defer l.Close()
+	defer func() {
+		if err := l.Close(); err != nil {
+			log.Printf("TCP listener close error: %s", err)
+		}
+	}()
 
 	for {
 		c, err := l.AcceptTCP()
@@ -38,7 +42,11 @@ func tcpServer(listenAddr string) error {
 // It reads data from the connection, checks for the magic string, and responds accordingly.
 func handleTCPConnection(c *net.TCPConn) {
 	kind := "TCP"
-	defer c.Close()
+	defer func() {
+		if err := c.Close(); err != nil && *verbose {
+			log.Printf("TCP connection close error: %s", err)
+		}
+	}()
 	check(c.SetNoDelay(true))
 	check(c.SetDeadline(time.Now().Add(*timeout)))
 
