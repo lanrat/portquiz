@@ -43,7 +43,7 @@ func main() {
 
 	if !*tcp && !*udp {
 		err := errors.New("must set TCP and/or UDP")
-		check(err)
+		log.Fatal(err)
 	}
 
 	g, ctx = errgroup.WithContext(context.Background())
@@ -70,7 +70,10 @@ func main() {
 		listen := net.JoinHostPort(ip, listenPort)
 
 		if !*noIPTables {
-			check(addFWRules(ip, listenPort))
+			err := addFWRules(ip, listenPort)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 
 		if *tcp {
@@ -82,7 +85,10 @@ func main() {
 		}
 	}
 
-	check(g.Wait())
+	err := g.Wait()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 // cleanup removes all firewall rules created by the server and performs shutdown tasks.
@@ -94,12 +100,5 @@ func cleanup() {
 		if err := cleanupFW(); err != nil {
 			log.Printf("Cleanup firewall error: %s", err)
 		}
-	}
-}
-
-// check logs a fatal error and exits the program if err is not nil.
-func check(err error) {
-	if err != nil {
-		log.Fatal(err)
 	}
 }

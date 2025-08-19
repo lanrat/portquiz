@@ -57,7 +57,9 @@ func main() {
 
 	if !*tcp && !*udp {
 		err := errors.New("must set TCP and/or UDP")
-		check(err)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	g, ctx = errgroup.WithContext(context.Background())
@@ -82,13 +84,9 @@ func main() {
 		return jobResults(ctx, results)
 	})
 
-	check(g.Wait())
-
-}
-
-// check logs a fatal error and exits the program if err is not nil.
-func check(err error) {
+	err := g.Wait()
 	if err != nil {
 		log.Fatal(err)
 	}
+
 }
