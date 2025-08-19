@@ -11,7 +11,6 @@ import (
 
 // udpServer starts a UDP server on the specified address and handles incoming packets.
 // It reads packets in a loop and responds to those containing the magic string.
-// TODO: detect canceled context
 func udpServer(ctx context.Context, listenAddr string) error {
 	log.Printf("starting UDP server on %s", listenAddr)
 	addr, err := net.ResolveUDPAddr("udp", listenAddr)
@@ -43,6 +42,13 @@ func udpServer(ctx context.Context, listenAddr string) error {
 	}()
 
 	for {
+		// Check for cancellation before potentially blocking call
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		n, remoteAddr, err := l.ReadFromUDP(buffer)
 		if err != nil {
 			// Check if context was cancelled

@@ -12,7 +12,6 @@ import (
 
 // tcpServer starts a TCP server on the specified address and handles incoming connections.
 // It accepts connections in a loop and spawns goroutines to handle each connection.
-// TODO: detect canceled context
 func tcpServer(ctx context.Context, listenAddr string) error {
 	addr, err := net.ResolveTCPAddr("tcp", listenAddr)
 	if err != nil {
@@ -39,6 +38,13 @@ func tcpServer(ctx context.Context, listenAddr string) error {
 	}()
 
 	for {
+		// Check for cancellation before potentially blocking call
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		c, err := l.AcceptTCP()
 		if err != nil {
 			// Check if context was cancelled

@@ -117,7 +117,7 @@ func cleanupFW() error {
 			log.Printf("Removing firewall IPv4 rule %+v", rule)
 		}
 		err2 := ip4t.Delete("nat", "PREROUTING", rule...)
-		if err != nil {
+		if err2 != nil {
 			if *verbose {
 				log.Printf("Error: %s", err2)
 			}
@@ -129,7 +129,7 @@ func cleanupFW() error {
 			log.Printf("Removing firewall IPv6 rule %+v", rule)
 		}
 		err2 := ip6t.Delete("nat", "PREROUTING", rule...)
-		if err != nil {
+		if err2 != nil {
 			if *verbose {
 				log.Printf("Error: %s", err2)
 			}

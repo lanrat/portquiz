@@ -31,8 +31,15 @@ func isOpenTCP(port int, network string) bool {
 	tcpAddr, _ := net.ResolveTCPAddr(network, net.JoinHostPort(server, fmt.Sprintf("%d", port)))
 	d := net.Dialer{Timeout: *timeout}
 	connInterface, err := d.Dial(network, tcpAddr.String())
-	conn, _ := connInterface.(*net.TCPConn)
-	if errors.Is(err, syscall.ECONNREFUSED) || /*errors.Is(err, os.ErrDeadlineExceeded) ||*/ os.IsTimeout(err) {
+	conn, ok := connInterface.(*net.TCPConn)
+	if !ok && err == nil {
+		// This shouldn't happen with TCP dialing, but handle it gracefully
+		if *verbose {
+			log.Printf("TCP dial returned unexpected connection type")
+		}
+		return false
+	}
+	if errors.Is(err, syscall.ECONNREFUSED) || os.IsTimeout(err) {
 		// port is closed
 		if *verbose {
 			log.Printf("%s CLOSED %d", network, port)
