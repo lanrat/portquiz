@@ -1,10 +1,7 @@
-default: portquiz
+default: portquiz portquiz-server
 
 RELEASE_DEPS = fmt lint
 include release.mk
-
-.PHONY: portquiz
-portquiz: portquiz-client portquiz-server
 
 .PHONY: deps
 deps: go.mod
@@ -18,7 +15,7 @@ update-deps:
 
 .PHONY: clean
 clean:
-	rm -rf portquiz-client portquiz-server dist/
+	rm -rf portquiz portquiz-server dist/
 
 .PHONY: fmt
 fmt:
@@ -28,7 +25,7 @@ fmt:
 lint:
 	golangci-lint run
 
-portquiz-client: go.mod go.sum client/*go
+portquiz: go.mod go.sum client/*go
 	go build -o $@ client/*.go
 
 portquiz-server: go.mod go.sum server/*go

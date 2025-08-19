@@ -5,10 +5,7 @@ version: 2
 
 before:
   hooks:
-    # You may remove this if you don't use go modules.
-    #- go mod tidy
-    # you may remove this if you don't need go generate
-    #- go generate ./...
+    - go mod tidy
 
 builds:
   - dir: server/
@@ -22,7 +19,7 @@ builds:
 
   - dir: client/
     id: client
-    binary: portquiz-client
+    binary: portquiz
     goos:
       - linux
       - windows
@@ -54,10 +51,3 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
-
-# release:
-#   footer: >-
-
-#     ---
-
-#     Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
