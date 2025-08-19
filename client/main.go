@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -26,6 +28,7 @@ var (
 	ipv4        = flag.Bool("4", false, "force IPv4")
 	ipv6        = flag.Bool("6", false, "force IPv6")
 	magicString = flag.String("password", "portquiz", "magicString to use, must be the same on client/server")
+	version     = flag.Bool("version", false, "show version information")
 )
 
 var (
@@ -33,6 +36,7 @@ var (
 	ctx              context.Context
 	server           string
 	magicStringBytes []byte
+	Version          = "dev"
 )
 
 // maxPort defines the maximum valid port number.
@@ -42,6 +46,12 @@ const maxPort = 65535
 // It sets up worker goroutines and manages the job queue for testing ports.
 func main() {
 	flag.Parse()
+
+	if *version {
+		fmt.Printf("portquiz client %s\n", Version)
+		os.Exit(0)
+	}
+
 	magicStringBytes = []byte(*magicString)
 
 	if flag.NArg() != 1 {

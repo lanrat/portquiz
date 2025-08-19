@@ -9,8 +9,10 @@
         "golangci",
         "GOPROXY",
         "goreleaser",
+        "ldflags",
         "portquiz",
-        "PREROUTING"
+        "PREROUTING",
+        "trimpath"
     ],
     "ignoreWords": [],
     "import": []

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -27,18 +28,26 @@ var (
 	port        = flag.Uint("port", 1337, "default port to listen on which will have traffic redirected to")
 	noIPTables  = flag.Bool("no-iptables", false, "disable automatically creating iptables rules")
 	magicString = flag.String("password", "portquiz", "magicString to use, must be the same on client/server")
+	version     = flag.Bool("version", false, "show version information")
 )
 
 var (
 	g                *errgroup.Group
 	ctx              context.Context
 	magicStringBytes []byte
+	Version          = "dev"
 )
 
 // main initializes and starts the portquiz server with the specified configuration.
 // It sets up signal handling for cleanup, creates firewall rules, and starts TCP/UDP servers.
 func main() {
 	flag.Parse()
+
+	if *version {
+		fmt.Printf("portquiz server %s\n", Version)
+		os.Exit(0)
+	}
+
 	magicStringBytes = []byte(*magicString)
 
 	if !*tcp && !*udp {

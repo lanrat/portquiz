@@ -11,6 +11,12 @@ builds:
   - dir: server/
     id: server
     binary: portquiz-server
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{.Version}}
     goos:
       - linux
     goarch:
@@ -20,6 +26,12 @@ builds:
   - dir: client/
     id: client
     binary: portquiz
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{.Version}}
     goos:
       - linux
       - windows
