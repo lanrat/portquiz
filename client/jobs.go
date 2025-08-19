@@ -125,11 +125,11 @@ func worker(ctx context.Context, jobs, results chan *job) error {
 			try := func() error {
 				switch {
 				case strings.HasPrefix(j.kind, "tcp"):
-					if isOpenTCPMulti(j.port, j.kind) {
+					if isOpenTCPMulti(ctx, j.port, j.kind) {
 						j.open = true
 					}
 				case strings.HasPrefix(j.kind, "udp"):
-					if isOpenUDPMulti(j.port, j.kind) {
+					if isOpenUDPMulti(ctx, j.port, j.kind) {
 						j.open = true
 					}
 				default:

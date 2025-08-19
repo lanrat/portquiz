@@ -68,8 +68,12 @@ func handleTCPConnection(c *net.TCPConn) {
 			log.Printf("TCP connection close error: %s", err)
 		}
 	}()
-	check(c.SetNoDelay(true))
-	check(c.SetDeadline(time.Now().Add(*timeout)))
+	if err := c.SetNoDelay(true); err != nil && *verbose {
+		log.Printf("TCP SetNoDelay warning: %s", err)
+	}
+	if err := c.SetDeadline(time.Now().Add(*timeout)); err != nil && *verbose {
+		log.Printf("TCP SetDeadline warning: %s", err)
+	}
 
 	if *verbose {
 		log.Printf("Serving %s %s\n", kind, c.RemoteAddr())

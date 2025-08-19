@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -15,9 +16,16 @@ import (
 
 // isOpenTCPMulti tests a TCP port multiple times to ensure reliability.
 // It returns true only if all attempts succeed, false if any attempt fails.
-func isOpenTCPMulti(port int, network string) bool {
+func isOpenTCPMulti(ctx context.Context, port int, network string) bool {
 	for try := uint(0); try < *multi; try++ {
-		if !isOpenTCP(port, network) {
+		// Check for cancellation before each attempt
+		select {
+		case <-ctx.Done():
+			return false
+		default:
+		}
+
+		if !isOpenTCP(ctx, port, network) {
 			return false
 		}
 	}
@@ -26,11 +34,24 @@ func isOpenTCPMulti(port int, network string) bool {
 
 // isOpenTCP tests if a single TCP port is open on the remote server.
 // It connects to the port, sends the magic string, and checks for a valid response.
-func isOpenTCP(port int, network string) bool {
+func isOpenTCP(ctx context.Context, port int, network string) bool {
+	// Check for cancellation before starting
+	select {
+	case <-ctx.Done():
+		return false
+	default:
+	}
+
 	// setup
-	tcpAddr, _ := net.ResolveTCPAddr(network, net.JoinHostPort(server, fmt.Sprintf("%d", port)))
+	tcpAddr, err := net.ResolveTCPAddr(network, net.JoinHostPort(server, fmt.Sprintf("%d", port)))
+	if err != nil {
+		if *verbose {
+			log.Printf("TCP resolve error for %s:%d: %s", server, port, err)
+		}
+		return false
+	}
 	d := net.Dialer{Timeout: *timeout}
-	connInterface, err := d.Dial(network, tcpAddr.String())
+	connInterface, err := d.DialContext(ctx, network, tcpAddr.String())
 	conn, ok := connInterface.(*net.TCPConn)
 	if !ok && err == nil {
 		// This shouldn't happen with TCP dialing, but handle it gracefully
@@ -46,7 +67,12 @@ func isOpenTCP(port int, network string) bool {
 		}
 		return false
 	}
-	check(err)
+	if err != nil {
+		if *verbose {
+			log.Printf("TCP dial error for %s:%d: %s", server, port, err)
+		}
+		return false
+	}
 	defer func() {
 		if err := conn.Close(); err != nil && *verbose {
 			log.Printf("TCP connection close error: %s", err)
@@ -54,13 +80,23 @@ func isOpenTCP(port int, network string) bool {
 	}()
 
 	// setup
-	check(conn.SetDeadline(time.Now().Add(*timeout)))
-	check(conn.SetNoDelay(true))
-	check(conn.SetWriteBuffer(len(magicStringBytes)))
-	check(conn.SetReadBuffer(len(magicStringBytes)))
+	if err := conn.SetDeadline(time.Now().Add(*timeout)); err != nil && *verbose {
+		log.Printf("TCP SetDeadline warning: %s", err)
+	}
+	if err := conn.SetNoDelay(true); err != nil && *verbose {
+		log.Printf("TCP SetNoDelay warning: %s", err)
+	}
+	if err := conn.SetWriteBuffer(len(magicStringBytes)); err != nil && *verbose {
+		log.Printf("TCP SetWriteBuffer warning: %s", err)
+	}
+	if err := conn.SetReadBuffer(len(magicStringBytes)); err != nil && *verbose {
+		log.Printf("TCP SetReadBuffer warning: %s", err)
+	}
 
 	// send data
-	check(conn.SetWriteDeadline(time.Now().Add(*timeout)))
+	if err := conn.SetWriteDeadline(time.Now().Add(*timeout)); err != nil && *verbose {
+		log.Printf("TCP SetWriteDeadline warning: %s", err)
+	}
 	_, err = conn.Write(magicStringBytes)
 	if err != nil && *verbose {
 		log.Printf("%s write error: %s", network, err)

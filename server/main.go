@@ -91,7 +91,9 @@ func cleanup() {
 		log.Printf("Cleaning up for exit")
 	}
 	if !*noIPTables {
-		check(cleanupFW())
+		if err := cleanupFW(); err != nil {
+			log.Printf("Cleanup firewall error: %s", err)
+		}
 	}
 }
 

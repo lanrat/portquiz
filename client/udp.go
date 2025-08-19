@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -14,9 +15,16 @@ import (
 
 // isOpenUDPMulti tests a UDP port multiple times to ensure reliability.
 // It returns true only if all attempts succeed, false if any attempt fails.
-func isOpenUDPMulti(port int, network string) bool {
+func isOpenUDPMulti(ctx context.Context, port int, network string) bool {
 	for try := uint(0); try < *multi; try++ {
-		if !isOpenUDP(port, network) {
+		// Check for cancellation before each attempt
+		select {
+		case <-ctx.Done():
+			return false
+		default:
+		}
+
+		if !isOpenUDP(ctx, port, network) {
 			return false
 		}
 	}
@@ -25,12 +33,29 @@ func isOpenUDPMulti(port int, network string) bool {
 
 // isOpenUDP tests if a single UDP port is open on the remote server.
 // It sends the magic string via UDP and checks for a valid response.
-func isOpenUDP(port int, network string) bool {
+func isOpenUDP(ctx context.Context, port int, network string) bool {
+	// Check for cancellation before starting
+	select {
+	case <-ctx.Done():
+		return false
+	default:
+	}
+
 	// setup
 	udpAddr, err := net.ResolveUDPAddr(network, net.JoinHostPort(server, fmt.Sprintf("%d", port)))
-	check(err)
+	if err != nil {
+		if *verbose {
+			log.Printf("UDP resolve error for %s:%d: %s", server, port, err)
+		}
+		return false
+	}
 	conn, err := net.DialUDP(network, nil, udpAddr)
-	check(err)
+	if err != nil {
+		if *verbose {
+			log.Printf("UDP dial error for %s:%d: %s", server, port, err)
+		}
+		return false
+	}
 	defer func() {
 		if err := conn.Close(); err != nil && *verbose {
 			log.Printf("UDP connection close error: %s", err)
@@ -38,14 +63,32 @@ func isOpenUDP(port int, network string) bool {
 	}()
 
 	// tuning
-	check(conn.SetDeadline(time.Now().Add(*timeout)))
-	check(conn.SetReadBuffer(len(magicStringBytes) * 2))
+	if err := conn.SetDeadline(time.Now().Add(*timeout)); err != nil && *verbose {
+		log.Printf("UDP SetDeadline warning: %s", err)
+	}
+	if err := conn.SetReadBuffer(len(magicStringBytes) * 2); err != nil && *verbose {
+		log.Printf("UDP SetReadBuffer warning: %s", err)
+	}
+
+	// Check for cancellation before send
+	select {
+	case <-ctx.Done():
+		return false
+	default:
+	}
 
 	// send data
 	_, err = conn.Write(magicStringBytes)
 	if err != nil && *verbose {
 		log.Printf("%s write error: %s", network, err)
 		return false
+	}
+
+	// Check for cancellation before receive
+	select {
+	case <-ctx.Done():
+		return false
+	default:
 	}
 
 	// receive data
