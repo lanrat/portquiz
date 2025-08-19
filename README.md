@@ -52,6 +52,7 @@ make
 > ⚠️ **WARNING**: The server creates iptables rules that redirect ALL incoming traffic to the listening IP. If you use the same IP for remote access (SSH, etc.), **YOU WILL BE LOCKED OUT**! Always use a dedicated IP address for the server.
 
 **Requirements:**
+
 - Linux system with iptables
 - Root privileges (for firewall rule management)
 - Dedicated IP address (separate from management/SSH access)
@@ -140,16 +141,19 @@ Usage of ./portquiz:
 ## Troubleshooting
 
 **Client shows all ports as closed:**
+
 - Verify the server is running and accessible
 - Check that firewall rules are properly configured
 - Ensure the magic string matches between client and server
 
 **Server setup fails:**
+
 - Verify you have root privileges
 - Check that iptables is installed and available
 - Ensure the listening IP is correctly configured on the system
 
 **Performance is slow:**
+
 - Reduce parallelism with `-parallel` flag
 - Test specific ports instead of all ports
 - Adjust timeout values for faster networks
