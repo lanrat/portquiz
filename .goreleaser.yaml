@@ -70,6 +70,42 @@ archives:
       # the OpenRC service is only useful next to the Linux server binary
       - src: '{{ if eq .Os "linux" }}service/*{{ end }}'
 
+nfpms:
+  # Alpine package with the server and its OpenRC service. File names have no
+  # version so releases/latest/download/ links always point to the newest one.
+  - id: server-apk
+    ids: [server]
+    package_name: portquiz-server
+    file_name_template: >-
+      {{ .PackageName }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "arm64" }}aarch64
+      {{- else }}{{ .Arch }}{{ end }}
+    formats: [apk]
+    homepage: https://github.com/lanrat/portquiz
+    maintainer: lanrat (https://github.com/lanrat/portquiz)
+    description: Server for portquiz, answers on every TCP and UDP port to test outbound connectivity
+    bindir: /usr/bin
+    dependencies:
+      - iptables
+      - ip6tables
+    contents:
+      - src: service/openrc_portquiz
+        dst: /etc/init.d/portquiz
+        file_info:
+          mode: 0755
+      - src: service/openrc_portquiz.confd
+        dst: /etc/conf.d/portquiz
+        type: config|noreplace
+        file_info:
+          mode: 0644
+    scripts:
+      postinstall: packaging/apk/postinstall.sh
+      preremove: packaging/apk/preremove.sh
+    apk:
+      scripts:
+        postupgrade: packaging/apk/postupgrade.sh
+
 changelog:
   sort: asc
   filters:

@@ -25,6 +25,7 @@ Can also be used to detect passive DPI Firewalls that block traffic not looking 
 **For running a server (Linux only):**
 
 - Download `portquiz-server` for Linux
+- On Alpine Linux, install or upgrade the server with one command, see [Running as a Service on Alpine Linux](#running-as-a-service-on-alpine-linux-openrc)
 
 ### Build from source
 
@@ -94,7 +95,33 @@ Usage of ./portquiz-server:
 
 ### Running as a Service on Alpine Linux (OpenRC)
 
-The `service/` directory, included in the release archives, contains an OpenRC service and an installer for it. They are plain `sh` scripts, so they work on a default Alpine install without bash.
+Each release includes an Alpine package with the server and its OpenRC service. Run this as root to install it, or to upgrade to the latest release:
+
+```shell
+wget -qO /tmp/portquiz-server.apk https://github.com/lanrat/portquiz/releases/latest/download/portquiz-server_$(uname -m).apk && apk add --allow-untrusted /tmp/portquiz-server.apk && rm /tmp/portquiz-server.apk
+```
+
+The package is not signed, hence `--allow-untrusted`. It installs `portquiz-server` to `/usr/bin`, the service as `/etc/init.d/portquiz` and its settings as `/etc/conf.d/portquiz`, and pulls in `iptables` and `ip6tables`. Upgrading restarts the service if it is running and keeps your settings; removing the package with `apk del portquiz-server` stops the service first so its iptables rules are removed. After the first install, set up the service:
+
+```shell
+# set PORTQUIZ_LISTEN to the IP addresses to listen on
+vi /etc/conf.d/portquiz
+
+rc-update add portquiz default
+rc-service portquiz start
+```
+
+Settings in `/etc/conf.d/portquiz`:
+
+- `PORTQUIZ_LISTEN` (required): comma separated IP addresses to listen on. Like `-listen`, all traffic to these addresses is redirected to portquiz, so use addresses dedicated to it and not the one you manage the machine through.
+- `PORTQUIZ_OPTS`: extra arguments for `portquiz-server`, for example `-udp` to serve only UDP.
+- `PORTQUIZ_BIN`: path to `portquiz-server`. By default `/usr/local/bin/portquiz-server` is used if it exists, otherwise `/usr/bin/portquiz-server` from the package.
+
+The server's output is logged to `/var/log/portquiz.log`. Stopping the service removes the iptables rules the server added.
+
+#### Without the package
+
+The `service/` directory in the Linux release archives contains the same OpenRC service and an installer for it, for systems where the package cannot be used. They are plain `sh` scripts, so they work on a default Alpine install without bash.
 
 ```shell
 # as root, from an extracted Linux release archive
@@ -115,13 +142,6 @@ The installer:
 - installs `/etc/conf.d/portquiz`, keeping an existing one
 
 Run it again from a newer release to upgrade; it restarts the service if it is configured.
-
-Settings in `/etc/conf.d/portquiz`:
-
-- `PORTQUIZ_LISTEN` (required): comma separated IP addresses to listen on. Like `-listen`, all traffic to these addresses is redirected to portquiz, so use addresses dedicated to it and not the one you manage the machine through.
-- `PORTQUIZ_OPTS`: extra arguments for `portquiz-server`, for example `-udp` to serve only UDP.
-
-The server's output is logged to `/var/log/portquiz.log`. Stopping the service removes the iptables rules the server added.
 
 ## Client
 

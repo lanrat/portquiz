@@ -12,3 +12,7 @@
 # Extra arguments for portquiz-server, see "portquiz-server -h".
 # By default the server answers on both TCP and UDP.
 #PORTQUIZ_OPTS=""
+
+# Path to portquiz-server. By default /usr/local/bin/portquiz-server is used
+# if it exists, otherwise /usr/bin/portquiz-server from the apk package.
+#PORTQUIZ_BIN=""

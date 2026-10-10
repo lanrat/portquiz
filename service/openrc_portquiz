@@ -5,7 +5,14 @@
 name="portquiz"
 description="portquiz server, answers on every TCP and UDP port of its listen IPs"
 
-command="${PORTQUIZ_BIN:-/usr/local/bin/portquiz-server}"
+# the apk package installs to /usr/bin, openrc_setup_service.sh to /usr/local/bin
+if [ -n "${PORTQUIZ_BIN}" ]; then
+	command="${PORTQUIZ_BIN}"
+elif [ -x /usr/local/bin/portquiz-server ]; then
+	command=/usr/local/bin/portquiz-server
+else
+	command=/usr/bin/portquiz-server
+fi
 command_args="-listen ${PORTQUIZ_LISTEN} ${PORTQUIZ_OPTS}"
 command_background=true
 pidfile="/run/${RC_SVCNAME}.pid"
