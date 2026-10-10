@@ -92,6 +92,37 @@ Usage of ./portquiz-server:
 ./portquiz-server -listen 192.0.2.123,2001:0DB8::1
 ```
 
+### Running as a Service on Alpine Linux (OpenRC)
+
+The `service/` directory, included in the release archives, contains an OpenRC service and an installer for it. They are plain `sh` scripts, so they work on a default Alpine install without bash.
+
+```shell
+# as root, from an extracted Linux release archive
+# (or from a source checkout after running make)
+./service/openrc_setup_service.sh
+
+# set PORTQUIZ_LISTEN to the IP addresses to listen on
+vi /etc/conf.d/portquiz
+
+rc-service portquiz start
+```
+
+The installer:
+
+- installs `iptables` and `ip6tables` with `apk` if they are missing
+- copies `portquiz-server` and `portquiz` to `/usr/local/bin`
+- installs the service as `/etc/init.d/portquiz` and enables it at boot
+- installs `/etc/conf.d/portquiz`, keeping an existing one
+
+Run it again from a newer release to upgrade; it restarts the service if it is configured.
+
+Settings in `/etc/conf.d/portquiz`:
+
+- `PORTQUIZ_LISTEN` (required): comma separated IP addresses to listen on. Like `-listen`, all traffic to these addresses is redirected to portquiz, so use addresses dedicated to it and not the one you manage the machine through.
+- `PORTQUIZ_OPTS`: extra arguments for `portquiz-server`, for example `-udp` to serve only UDP.
+
+The server's output is logged to `/var/log/portquiz.log`. Stopping the service removes the iptables rules the server added.
+
 ## Client
 
 The portquiz client connects to the portquiz server and tests port connectivity. By default portquiz will test all ports unless `-port` is specified.

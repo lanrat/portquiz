@@ -1,13 +1,29 @@
 #!/sbin/openrc-run
+# OpenRC service for the portquiz server, installed as /etc/init.d/portquiz.
+# Settings are read from /etc/conf.d/portquiz, where PORTQUIZ_LISTEN must be set.
+
 name="portquiz"
-description="PortQuiz Server"
-command="/usr/local/bin/portquiz-server-service.sh"
+description="portquiz server, answers on every TCP and UDP port of its listen IPs"
+
+command="${PORTQUIZ_BIN:-/usr/local/bin/portquiz-server}"
+command_args="-listen ${PORTQUIZ_LISTEN} ${PORTQUIZ_OPTS}"
 command_background=true
-pidfile="/run/portquiz.pid"
-output_log="/var/log/portquiz.log"
-error_log="/var/log/portquiz.log"
+pidfile="/run/${RC_SVCNAME}.pid"
+output_log="/var/log/${RC_SVCNAME}.log"
+error_log="/var/log/${RC_SVCNAME}.log"
+# the server removes its iptables rules when it receives SIGTERM; give it time
+# to do so before resorting to SIGKILL, which would leave the rules behind
+retry="TERM/10/KILL/5"
 
 depend() {
-# For a media server example, this will require the network to be online
-    need net
+	need net
+	# add the redirect rules after any saved firewall rules are restored
+	after firewall
+}
+
+start_pre() {
+	if [ -z "${PORTQUIZ_LISTEN}" ]; then
+		eerror "PORTQUIZ_LISTEN is not set in /etc/conf.d/${RC_SVCNAME}"
+		return 1
+	fi
 }

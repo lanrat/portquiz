@@ -1,0 +1,14 @@
+# Settings for the portquiz server OpenRC service, installed as
+# /etc/conf.d/portquiz. Restart the service after changing them:
+#   rc-service portquiz restart
+
+# Comma separated list of IP addresses to listen on. Required.
+#
+# WARNING: all traffic to these addresses, on every port, is redirected to
+# portquiz, including SSH. Use addresses dedicated to portquiz, never the
+# address you use to manage this machine, or you will be locked out.
+#PORTQUIZ_LISTEN="192.0.2.123,2001:db8::123"
+
+# Extra arguments for portquiz-server, see "portquiz-server -h".
+# By default the server answers on both TCP and UDP.
+#PORTQUIZ_OPTS=""

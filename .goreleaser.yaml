@@ -63,6 +63,12 @@ archives:
       - goos: windows
         formats: [zip]
     allow_different_binary_count: true
+    # setting files replaces the defaults, so the README is listed too
+    files:
+      - README*
+      - LICENSE*
+      # the OpenRC service is only useful next to the Linux server binary
+      - src: '{{ if eq .Os "linux" }}service/*{{ end }}'
 
 changelog:
   sort: asc
