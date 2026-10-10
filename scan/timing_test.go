@@ -1,33 +1,23 @@
-package main
+package scan
 
 import (
 	"testing"
 	"time"
 )
 
-// withTiming sets -timeout and -adaptive for the duration of a test.
-func withTiming(t *testing.T, max time.Duration, adapt bool) {
-	t.Helper()
-	oldTimeout, oldAdaptive := *timeout, *adaptive
-	*timeout, *adaptive = max, adapt
-	t.Cleanup(func() { *timeout, *adaptive = oldTimeout, oldAdaptive })
-}
-
 func TestEstimatorStartsAtFullTimeout(t *testing.T) {
-	withTiming(t, 2*time.Second, true)
-	if got := newEstimator().timeout(); got != 2*time.Second {
-		t.Errorf("got %s, want the full -timeout", got)
+	if got := newEstimator(2*time.Second, true).timeout(); got != 2*time.Second {
+		t.Errorf("got %s, want the full timeout", got)
 	}
 }
 
 func TestEstimatorDisabled(t *testing.T) {
-	withTiming(t, 2*time.Second, false)
-	e := newEstimator()
+	e := newEstimator(2*time.Second, false)
 	for range 10 {
 		e.sample(10 * time.Millisecond)
 	}
 	if got := e.timeout(); got != 2*time.Second {
-		t.Errorf("got %s, want the full -timeout when -adaptive=false", got)
+		t.Errorf("got %s, want the full timeout when Adaptive is off", got)
 	}
 	if e.shouldRecheck() {
 		t.Error("rechecked although the full timeout is already used")
@@ -35,7 +25,6 @@ func TestEstimatorDisabled(t *testing.T) {
 }
 
 func TestEstimatorTimeouts(t *testing.T) {
-	withTiming(t, 2*time.Second, true)
 	tests := []struct {
 		name    string
 		samples []time.Duration
@@ -47,7 +36,7 @@ func TestEstimatorTimeouts(t *testing.T) {
 		{"slow responses are capped at -timeout", []time.Duration{1500 * time.Millisecond}, 2 * time.Second},
 	}
 	for _, tt := range tests {
-		e := newEstimator()
+		e := newEstimator(2*time.Second, true)
 		for _, s := range tt.samples {
 			e.sample(s)
 		}
@@ -58,8 +47,7 @@ func TestEstimatorTimeouts(t *testing.T) {
 }
 
 func TestEstimatorVariationWidensTimeout(t *testing.T) {
-	withTiming(t, 2*time.Second, true)
-	steady, jittery := newEstimator(), newEstimator()
+	steady, jittery := newEstimator(2*time.Second, true), newEstimator(2*time.Second, true)
 	for i := range 50 {
 		steady.sample(100 * time.Millisecond)
 		jittery.sample(time.Duration(50+100*(i%2)) * time.Millisecond)
@@ -70,8 +58,7 @@ func TestEstimatorVariationWidensTimeout(t *testing.T) {
 }
 
 func TestEstimatorRecheckSampling(t *testing.T) {
-	withTiming(t, 2*time.Second, true)
-	e := newEstimator()
+	e := newEstimator(2*time.Second, true)
 	e.sample(10 * time.Millisecond)
 	rechecks := 0
 	for range 100 {
@@ -85,8 +72,7 @@ func TestEstimatorRecheckSampling(t *testing.T) {
 }
 
 func TestEstimatorMissRaisesTimeout(t *testing.T) {
-	withTiming(t, 2*time.Second, true)
-	e := newEstimator()
+	e := newEstimator(2*time.Second, true)
 	for range 20 {
 		e.sample(10 * time.Millisecond)
 	}

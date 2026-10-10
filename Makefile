@@ -25,7 +25,7 @@ fmt:
 lint:
 	golangci-lint run
 
-portquiz: go.mod go.sum client/*go
+portquiz: go.mod go.sum client/*go scan/*go
 	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.Version=$(VERSION)" -o $@ ./client
 
 portquiz-server: go.mod go.sum server/*go

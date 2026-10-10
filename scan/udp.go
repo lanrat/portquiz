@@ -1,13 +1,10 @@
-// Package main provides UDP connectivity testing functionality for the portquiz client.
-// It implements functions to test if UDP ports are open on a remote server.
-package main
+package scan
 
 import (
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"syscall"
@@ -19,12 +16,11 @@ import (
 // that an ICMP port unreachable from a rejecting firewall is reported at once
 // as refused; an unconnected socket shared by all checks never sees those, so
 // every rejected port would wait out the full timeout instead.
-func checkUDP(ctx context.Context, network string, addr *net.IPAddr, port int, timeout time.Duration) (outcome, time.Duration) {
+func (t *target) checkUDP(ctx context.Context, port int, timeout time.Duration) (outcome, time.Duration) {
+	network, addr := t.network, t.addr
 	conn, err := dialUDP(network, &net.UDPAddr{IP: addr.IP, Port: port, Zone: addr.Zone})
 	if err != nil {
-		if *verbose {
-			log.Printf("%s %d dial error: %s", network, port, err)
-		}
+		t.opts.logf("%s %d dial error: %s", network, port, err)
 		return outcomeFailed, 0
 	}
 	defer func() { _ = conn.Close() }()
@@ -33,10 +29,10 @@ func checkUDP(ctx context.Context, network string, addr *net.IPAddr, port int, t
 	defer stopAfter()
 
 	start := time.Now()
-	if err := conn.SetDeadline(start.Add(timeout)); err != nil && *verbose {
-		log.Printf("%s %d SetDeadline warning: %s", network, port, err)
+	if err := conn.SetDeadline(start.Add(timeout)); err != nil {
+		t.opts.logf("%s %d SetDeadline warning: %s", network, port, err)
 	}
-	if _, err := conn.Write(magicStringBytes); err != nil {
+	if _, err := conn.Write(t.magic); err != nil {
 		return outcomeFailed, 0
 	}
 	buffer := make([]byte, 2048)
@@ -48,7 +44,7 @@ func checkUDP(ctx context.Context, network string, addr *net.IPAddr, port int, t
 		return outcomeTimeout, 0
 	case err != nil:
 		return outcomeFailed, 0
-	case !bytes.HasPrefix(buffer[:n], magicStringBytes):
+	case !bytes.HasPrefix(buffer[:n], t.magic):
 		return outcomeFailed, 0
 	}
 	return outcomeOpen, time.Since(start)

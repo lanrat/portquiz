@@ -1,4 +1,4 @@
-package main
+package scan
 
 import (
 	"slices"
@@ -6,7 +6,6 @@ import (
 )
 
 func TestParsePorts(t *testing.T) {
-	defer func() { *port = "" }()
 	tests := []struct {
 		in   string
 		want []int
@@ -20,8 +19,7 @@ func TestParsePorts(t *testing.T) {
 		{"65534-65535", []int{65534, 65535}},
 	}
 	for _, tt := range tests {
-		*port = tt.in
-		got, err := parsePorts()
+		got, err := ParsePorts(tt.in)
 		if err != nil {
 			t.Errorf("%q: unexpected error: %v", tt.in, err)
 			continue
@@ -31,20 +29,17 @@ func TestParsePorts(t *testing.T) {
 		}
 	}
 
-	*port = ""
-	all, err := parsePorts()
-	if err != nil || len(all) != maxPort || all[0] != 1 || all[len(all)-1] != maxPort {
-		t.Errorf("empty -port: got %d ports (err %v), want 1-%d", len(all), err, maxPort)
+	all, err := ParsePorts("")
+	if err != nil || len(all) != MaxPort || all[0] != 1 || all[len(all)-1] != MaxPort {
+		t.Errorf("empty list: got %d ports (err %v), want 1-%d", len(all), err, MaxPort)
 	}
 }
 
 func TestParsePortsInvalid(t *testing.T) {
-	defer func() { *port = "" }()
 	for _, in := range []string{
-		"0", "65536", "abc", "-5", "5-", "10-5", "1-2-3", "1-65536", "0-10", "1-x",
+		"0", "65536", "abc", "-5", "5-", "10-5", "1-2-3", "1-65536", "0-10", "1-x", ",,",
 	} {
-		*port = in
-		if got, err := parsePorts(); err == nil {
+		if got, err := ParsePorts(in); err == nil {
 			t.Errorf("%q: expected an error, got %v", in, got)
 		}
 	}

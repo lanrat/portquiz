@@ -1,4 +1,4 @@
-package main
+package scan
 
 import (
 	"bytes"
@@ -47,10 +47,20 @@ func unusedUDPPort(t *testing.T) int {
 	return port
 }
 
-var localhost = &net.IPAddr{IP: net.IPv4(127, 0, 0, 1)}
+// newUDPTarget returns a UDP target for localhost with the default options.
+func newUDPTarget() *target {
+	opts := DefaultOptions()
+	return &target{
+		kind:    "udp",
+		network: "udp4",
+		addr:    &net.IPAddr{IP: net.IPv4(127, 0, 0, 1)},
+		udp:     true,
+		opts:    &opts,
+		magic:   []byte(opts.Password),
+	}
+}
 
 func TestCheckUDP(t *testing.T) {
-	magicStringBytes = []byte("portquiz")
 	tests := []struct {
 		name string
 		port int
@@ -63,7 +73,7 @@ func TestCheckUDP(t *testing.T) {
 	}
 	for _, tt := range tests {
 		start := time.Now()
-		got, _ := checkUDP(context.Background(), "udp4", localhost, tt.port, 300*time.Millisecond)
+		got, _ := newUDPTarget().checkUDP(context.Background(), tt.port, 300*time.Millisecond)
 		if got != tt.want {
 			t.Errorf("%s: got %v, want %v", tt.name, got, tt.want)
 		}
@@ -74,12 +84,11 @@ func TestCheckUDP(t *testing.T) {
 }
 
 func TestCheckUDPCanceled(t *testing.T) {
-	magicStringBytes = []byte("portquiz")
 	port := startUDPServer(t, func([]byte) []byte { return nil })
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(50*time.Millisecond, cancel)
 	start := time.Now()
-	if out, _ := checkUDP(ctx, "udp4", localhost, port, 5*time.Second); out == outcomeOpen || time.Since(start) > time.Second {
+	if out, _ := newUDPTarget().checkUDP(ctx, port, 5*time.Second); out == outcomeOpen || time.Since(start) > time.Second {
 		t.Errorf("got %v after %s, want a prompt non-open result", out, time.Since(start))
 	}
 }
