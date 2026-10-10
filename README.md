@@ -43,8 +43,8 @@ make
 # Test all TCP and UDP ports
 ./portquiz -tcp -udp example.com
 
-# Test specific ports only
-./portquiz -tcp -port 22,80,443 example.com
+# Test specific ports and ranges only
+./portquiz -tcp -port 22,80,443,8000-8100 example.com
 
 # Show only open ports
 ./portquiz -tcp -udp -open example.com
@@ -122,7 +122,7 @@ Usage of ./portquiz:
   -password string
         magicString to use, must be the same on client/server (default "portquiz")
   -port string
-        comma separated list of ports to test
+        comma separated list of ports and ranges to test, e.g. 22,80,1000-2000 (default all ports)
   -retry uint
         number of times to retry a port that did not respond (default 1)
   -tcp
@@ -151,7 +151,7 @@ OPEN tcp 80-81
 CLOSED tcp 82-65535
 ```
 
-Ranges for different protocols can be interleaved, as above. Ports listed with `-port` are only merged when they are consecutive, so `-port 22,80,81` prints `22` and `80-81` separately. Use `-open` or `-closed` to print only one kind of result, or `-format ports` to print one line per port instead of ranges.
+Ranges for different protocols can be interleaved, as above. Ports listed with `-port` are only merged when they are consecutive, so `-port 22,80-81` prints `22` and `80-81` separately. Use `-open` or `-closed` to print only one kind of result, or `-format ports` to print one line per port instead of ranges.
 
 ### Example Client
 

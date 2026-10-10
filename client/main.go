@@ -25,7 +25,7 @@ var (
 	parallel    = flag.Uint("parallel", 100, "number of ports to test at once")
 	open        = flag.Bool("open", false, "print only open ports")
 	closed      = flag.Bool("closed", false, "print only closed ports")
-	port        = flag.String("port", "", "comma separated list of ports to test")
+	port        = flag.String("port", "", "comma separated list of ports and ranges to test, e.g. 22,80,1000-2000 (default all ports)")
 	multi       = flag.Uint("multi", 1, "test multiple times to ensure larger streams work")
 	ipv4        = flag.Bool("4", false, "force IPv4")
 	ipv6        = flag.Bool("6", false, "force IPv6")

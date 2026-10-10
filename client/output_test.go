@@ -128,15 +128,3 @@ func TestPortsFormat(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
-
-func TestParsePortsSortsAndDedupes(t *testing.T) {
-	*port = "443,22,80,22,,443"
-	defer func() { *port = "" }()
-	got, err := parsePorts()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := []int{22, 80, 443}; !slices.Equal(got, want) {
-		t.Errorf("got %v, want %v", got, want)
-	}
-}

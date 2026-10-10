@@ -43,7 +43,7 @@ func versions() []string {
 }
 
 // parsePorts returns the ports to test, sorted and without duplicates:
-// every port, or the ports listed in -port.
+// every port, or the ports and ranges listed in -port, e.g. "22,80,1000-2000".
 func parsePorts() ([]int, error) {
 	var ports []int
 	if *port == "" {
@@ -53,21 +53,45 @@ func parsePorts() ([]int, error) {
 		}
 		return ports, nil
 	}
-	for _, ps := range strings.Split(*port, ",") {
-		if ps == "" {
+	for _, item := range strings.Split(*port, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
 			continue
 		}
-		p, err := strconv.Atoi(ps)
+		first, last, isRange := strings.Cut(item, "-")
+		start, err := parsePort(first)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("invalid -port entry %q: %w", item, err)
 		}
-		if p < 1 || p > maxPort {
-			return nil, fmt.Errorf("invalid port %d: must be between 1 and %d", p, maxPort)
+		end := start
+		if isRange {
+			end, err = parsePort(last)
+			if err != nil {
+				return nil, fmt.Errorf("invalid -port entry %q: %w", item, err)
+			}
+			if start > end {
+				return nil, fmt.Errorf("invalid -port entry %q: start of range is greater than end", item)
+			}
 		}
-		ports = append(ports, p)
+		for p := start; p <= end; p++ {
+			ports = append(ports, p)
+		}
 	}
 	slices.Sort(ports)
 	return slices.Compact(ports), nil
+}
+
+// parsePort parses a single port number and checks that it is in range.
+func parsePort(s string) (int, error) {
+	s = strings.TrimSpace(s)
+	p, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, fmt.Errorf("%q is not a port number", s)
+	}
+	if p < 1 || p > maxPort {
+		return 0, fmt.Errorf("port %d is not between 1 and %d", p, maxPort)
+	}
+	return p, nil
 }
 
 // totalJobs returns the number of jobs that jobSource will create for the given ports.
