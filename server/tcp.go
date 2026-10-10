@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"io"
 	"log"
 	"net"
 	"time"
@@ -96,8 +97,18 @@ func handleTCPConnection(c *net.TCPConn) {
 			log.Printf("[%s] PORTQUIZ from %s", kind, c.RemoteAddr())
 		}
 		_, err := c.Write(magicStringBytes)
-		if err != nil && *verbose {
-			log.Printf("TCP Write Error from %s: %s", c.RemoteAddr(), err)
+		if err != nil {
+			if *verbose {
+				log.Printf("TCP Write Error from %s: %s", c.RemoteAddr(), err)
+			}
+			return
 		}
+		// Wait for the client to close first, so the TIME_WAIT state of the
+		// closed connection stays on the client. Every port is redirected to
+		// this one listener, so here a connection is told apart only by the
+		// client's address and source port; holding TIME_WAIT on the server
+		// can make it ignore a new connection that reuses that source port,
+		// costing the client a one second retransmission.
+		_, _ = io.Copy(io.Discard, c)
 	}
 }
