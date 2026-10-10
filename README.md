@@ -60,6 +60,7 @@ make
 - Linux system with iptables
 - Root privileges (for firewall rule management)
 - Dedicated IP address (separate from management/SSH access)
+- If the server is behind NAT, such as a home router, every port must be forwarded to it (often called a "DMZ host" setting), and `-listen` is its own private IP. Otherwise clients only see the ports the router forwards.
 
 ```shell
 $ ./portquiz-server -h
@@ -142,6 +143,32 @@ The installer:
 - installs `/etc/conf.d/portquiz`, keeping an existing one
 
 Run it again from a newer release to upgrade; it restarts the service if it is configured.
+
+#### Proxmox
+
+In a Proxmox VM, Alpine runs with its own kernel and the steps above work unchanged. An LXC container shares the Proxmox host's kernel, which changes a few things:
+
+- **Kernel modules:** the server's iptables rules need netfilter modules that a container cannot load itself. If the service fails to start with an iptables error in `/var/log/portquiz.log`, load them on the Proxmox host and add them to the host's `/etc/modules` so they load at boot:
+
+  ```shell
+  # on the Proxmox host
+  modprobe -a nf_tables nft_chain_nat nft_compat xt_comment xt_nat
+  ```
+
+- **Proxmox firewall:** if it is enabled for the datacenter, node or container, it filters traffic before it reaches portquiz and every port looks closed. Allow all inbound TCP and UDP to the portquiz IP, or disable the firewall on that network device.
+- **Dedicated IP:** give the container a second network device (`net1`) in its Proxmox network settings and use its address for `PORTQUIZ_LISTEN`. Proxmox rewrites `/etc/network/interfaces` inside the container, so do not add addresses there by hand.
+- **Recovery:** if you do lose SSH access to the container, `pct enter <id>` on the host or the Proxmox console still gets you in.
+- **Connection tracking:** the connection tracking table belongs to the host kernel and is shared by all guests, so heavy scans use entries the other guests also need. The client's default `-rate` keeps this moderate.
+
+To check the service after installing:
+
+```shell
+rc-service portquiz status
+iptables -t nat -S PREROUTING | grep portquiz   # expect one tcp and one udp rule
+tail /var/log/portquiz.log                      # iptables errors appear here
+```
+
+Then run `portquiz -port 1-100 <ip>` from outside your network. If the rules are present but every port is closed, check the Proxmox firewall and any NAT forwarding in front of the server.
 
 ## Client
 
