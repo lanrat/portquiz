@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // job represents a single port testing task.
@@ -40,11 +41,46 @@ func versions() []string {
 	return []string{"4", "6"}
 }
 
-// jobSource generates port testing jobs and sends them to the jobs channel.
-// It creates jobs for the specified port range or individual ports based on command line arguments.
-func jobSource(ctx context.Context, jobs, results chan *job) error {
-	start := 1
-	end := maxPort
+// parsePorts returns the ports to test: every port, or the ports listed in -port.
+func parsePorts() ([]int, error) {
+	var ports []int
+	if *port == "" {
+		ports = make([]int, 0, maxPort)
+		for p := 1; p <= maxPort; p++ {
+			ports = append(ports, p)
+		}
+		return ports, nil
+	}
+	for _, ps := range strings.Split(*port, ",") {
+		if ps == "" {
+			continue
+		}
+		p, err := strconv.Atoi(ps)
+		if err != nil {
+			return nil, err
+		}
+		if p < 1 || p > maxPort {
+			return nil, fmt.Errorf("invalid port %d: must be between 1 and %d", p, maxPort)
+		}
+		ports = append(ports, p)
+	}
+	return ports, nil
+}
+
+// totalJobs returns the number of jobs that jobSource will create for the given ports.
+func totalJobs(ports []int) int {
+	protocols := 0
+	if *tcp {
+		protocols++
+	}
+	if *udp {
+		protocols++
+	}
+	return len(ports) * len(versions()) * protocols
+}
+
+// jobSource generates port testing jobs for the given ports and sends them to the jobs channel.
+func jobSource(ctx context.Context, ports []int, jobs, results chan *job) error {
 	addJob := func(p int, ver []string) error {
 		for _, v := range ver {
 			if *tcp {
@@ -77,30 +113,10 @@ func jobSource(ctx context.Context, jobs, results chan *job) error {
 		return nil
 	}
 	ver := versions()
-	if *port == "" {
-		for p := start; p <= end; p++ {
-			err := addJob(p, ver)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		ports := strings.Split(*port, ",")
-		for _, ps := range ports {
-			if ps == "" {
-				continue
-			}
-			p, err := strconv.Atoi(ps)
-			if err != nil {
-				return err
-			}
-			if p < 1 || p > maxPort {
-				return fmt.Errorf("invalid port %d: must be between 1 and %d", p, maxPort)
-			}
-			err = addJob(p, ver)
-			if err != nil {
-				return err
-			}
+	for _, p := range ports {
+		err := addJob(p, ver)
+		if err != nil {
+			return err
 		}
 	}
 	close(jobs)
@@ -148,30 +164,63 @@ func worker(ctx context.Context, jobs, results chan *job) error {
 				}
 			}
 
-			results <- j
+			select {
+			case <-ctx.Done():
+				return nil
+			case results <- j:
+			}
 		}
 	}
 }
 
 // jobResults processes completed jobs from the results channel and prints the output.
-// It formats and displays the results based on the open/closed flags.
-func jobResults(ctx context.Context, results chan *job) error {
+// It formats and displays the results based on the open/closed flags, and keeps the
+// progress line up to date when it is enabled.
+func jobResults(ctx context.Context, results chan *job, total int) error {
+	var p *progress
+	var tick <-chan time.Time
+	if progressEnabled() {
+		p = newProgress(total)
+		p.draw()
+		t := time.NewTicker(progressInterval)
+		defer t.Stop()
+		tick = t.C
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
+			if p != nil {
+				p.clear()
+			}
 			return nil
+		case <-tick:
+			p.draw()
 		case j, ok := <-results:
 			if !ok {
 				// channel closed
+				if p != nil {
+					p.summary()
+				}
 				return nil
 			}
-			if j.open {
-				if *open {
-					fmt.Printf("OPEN %s %d\n", j.kind, j.port)
+			var line string
+			if j.open && *open {
+				line = fmt.Sprintf("OPEN %s %d", j.kind, j.port)
+			} else if !j.open && *closed {
+				line = fmt.Sprintf("CLOSED %s %d", j.kind, j.port)
+			}
+			if p != nil {
+				p.record(j.open)
+			}
+			if line != "" {
+				if p != nil {
+					p.clear()
 				}
-			} else {
-				if *closed {
-					fmt.Printf("CLOSED %s %d\n", j.kind, j.port)
+				fmt.Println(line)
+				// redraw once the current batch of results has been printed
+				if p != nil && len(results) == 0 {
+					p.draw()
 				}
 			}
 			wg.Done()

@@ -56,6 +56,9 @@ func isOpenUDP(ctx context.Context, port int, network string) bool {
 		}
 		return false
 	}
+	// unblock any pending read or write as soon as the context is canceled
+	stopAfter := context.AfterFunc(ctx, func() { _ = conn.SetDeadline(time.Now()) })
+	defer stopAfter()
 	defer func() {
 		if err := conn.Close(); err != nil && *verbose {
 			log.Printf("UDP connection close error: %s", err)

@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -29,6 +31,7 @@ var (
 	ipv6        = flag.Bool("6", false, "force IPv6")
 	magicString = flag.String("password", "portquiz", "magicString to use, must be the same on client/server")
 	version     = flag.Bool("version", false, "show version information")
+	noProgress  = flag.Bool("no-progress", false, "disable the progress bar shown when stderr is a terminal")
 )
 
 var (
@@ -69,14 +72,26 @@ func main() {
 		log.Fatal(errors.New("must set TCP and/or UDP"))
 	}
 
-	g, ctx = errgroup.WithContext(context.Background())
+	ports, err := parsePorts()
+	if err != nil {
+		log.Fatal(err)
+	}
+	total := totalJobs(ports)
+
+	// stop gracefully on the first interrupt so the progress line is cleaned up;
+	// restoring default signal handling lets a second interrupt exit immediately
+	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	context.AfterFunc(sigCtx, stop)
+
+	g, ctx = errgroup.WithContext(sigCtx)
 
 	jobs := make(chan *job, 100)
 	results := make(chan *job, 100)
 
 	// start putting ports into queue
 	g.Go(func() error {
-		return jobSource(ctx, jobs, results)
+		return jobSource(ctx, ports, jobs, results)
 	})
 
 	// start workers
@@ -88,12 +103,16 @@ func main() {
 
 	// start results
 	g.Go(func() error {
-		return jobResults(ctx, results)
+		return jobResults(ctx, results, total)
 	})
 
-	err := g.Wait()
+	err = g.Wait()
 	if err != nil {
 		log.Fatal(err)
+	}
+	if sigCtx.Err() != nil {
+		fmt.Fprintln(os.Stderr, "interrupted")
+		os.Exit(130)
 	}
 
 }
