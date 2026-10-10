@@ -49,3 +49,49 @@ jobs:
         with:
           version: '~> v2'
           args: check
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'android/gomobile/go.mod'
+          cache-dependency-path: |
+            go.sum
+            android/gomobile/go.sum
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools ndk;30.0.16248370'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Test gomobile adapter
+        working-directory: android/gomobile
+        run: |
+          go vet ./...
+          go test -race ./...
+
+      - name: Build, test and lint app
+        working-directory: android
+        run: ./gradlew testDebugUnitTest lint assembleDebug assembleRelease
+
+      # the debug APK is signed with a throwaway key, so it can be installed
+      # for testing; uninstall it before installing a release build
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: portquiz-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk

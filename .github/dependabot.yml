@@ -17,3 +17,21 @@ updates:
       go-modules:
         patterns:
           - "*"
+
+  - package-ecosystem: "gomod"
+    directory: "/android/gomobile"
+    schedule:
+      interval: "weekly"
+    groups:
+      android-go-modules:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "gradle"
+    directory: "/android"
+    schedule:
+      interval: "weekly"
+    groups:
+      gradle:
+        patterns:
+          - "*"

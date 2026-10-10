@@ -22,6 +22,10 @@ Can also be used to detect passive DPI Firewalls that block traffic not looking 
 
 - Download `portquiz` for your platform (Windows, macOS, Linux)
 
+**For testing connectivity from an Android phone (arm64, Android 10+):**
+
+- Install `portquiz_Android_arm64.apk`, see [android/README.md](android/README.md)
+
 **For running a server (Linux only):**
 
 - Download `portquiz-server` for Linux

@@ -33,17 +33,20 @@ android {
         }
     }
 
-    // Release builds are signed when the keystore is provided through these
-    // environment variables, as the release workflow does; otherwise they
-    // are left unsigned.
+    // Release builds are signed when PORTQUIZ_KEYSTORE points at a keystore
+    // and PORTQUIZ_KEYSTORE_PASSWORD holds its password, as the release
+    // workflow does; otherwise they are left unsigned. The key alias defaults
+    // to "portquiz" and the key password to the keystore password, which is
+    // how keytool creates a PKCS12 keystore (see android/README.md).
     val keystore = System.getenv("PORTQUIZ_KEYSTORE")
     signingConfigs {
         if (keystore != null) {
             create("release") {
+                val password = System.getenv("PORTQUIZ_KEYSTORE_PASSWORD")
                 storeFile = file(keystore)
-                storePassword = System.getenv("PORTQUIZ_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("PORTQUIZ_KEY_ALIAS")
-                keyPassword = System.getenv("PORTQUIZ_KEY_PASSWORD")
+                storePassword = password
+                keyAlias = System.getenv("PORTQUIZ_KEY_ALIAS") ?: "portquiz"
+                keyPassword = System.getenv("PORTQUIZ_KEY_PASSWORD") ?: password
             }
         }
     }

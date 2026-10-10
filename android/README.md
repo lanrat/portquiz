@@ -1,0 +1,68 @@
+# portquiz for Android
+
+A minimal Android client for portquiz. It runs the same scanning code as the command line client, compiled into the app with [gomobile](https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile).
+
+It needs Android 10 or later on a 64-bit ARM (arm64) device.
+
+## Install
+
+1. Download `portquiz_Android_arm64.apk` from the [latest release](https://github.com/lanrat/portquiz/releases/latest) on the device.
+2. Open it and allow installing apps from the browser or file manager when Android asks.
+3. On first scan, allow notifications so the scan's progress shows while the app is in the background.
+
+To update, install the newer APK over the old one; settings are kept. A debug build from CI is signed with a different key, so uninstall it before installing a release, and the other way around.
+
+## Use
+
+Enter the portquiz server and optionally the ports to test (empty for all ports, or a list like `22,80,1000-2000`), choose TCP, UDP or both, and tap Start. Results are listed as ranges of ports with the same result, with open ports highlighted.
+
+Scans keep running with the screen off or the app in the background: progress is shown in a notification, which also has a Stop button. A full scan of one protocol takes at least about 2 minutes. The settings of the last scan are restored the next time the app opens.
+
+The app uses the client's default settings: adaptive timeouts, at most 500 connections per second, and one retry for ports that do not respond.
+
+## Build
+
+Requirements:
+
+- Go (the version in `gomobile/go.mod`)
+- JDK 21
+- Android SDK with NDK `30.0.16248370` (`sdkmanager "ndk;30.0.16248370"`), and either `ANDROID_HOME` set or `sdk.dir` in `local.properties`
+
+```shell
+cd android
+./gradlew assembleDebug
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
+
+Gradle builds the Go library first with `gomobile/bind.sh`, which builds `gomobile` and `gobind` from the versions pinned in `gomobile/go.mod`. `./gradlew testDebugUnitTest lint` runs the app's tests and checks, and `go test ./...` in `gomobile/` tests the Go adapter.
+
+Layout:
+
+- `gomobile/`: Go module that adapts the `scan` package for gomobile
+- `app/`: the Kotlin app; `ScanService` runs scans as a foreground service, `MainActivity` is the only screen
+
+## Release signing
+
+Release builds attached to GitHub releases are signed by the release workflow. Android only installs an update when it is signed with the same key as the installed app, so the key must stay the same for the life of the app. Set it up once:
+
+1. Create a keystore, choosing a strong password when asked:
+
+   ```shell
+   keytool -genkeypair -keystore portquiz-release.jks -storetype PKCS12 \
+     -alias portquiz -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=portquiz"
+   ```
+
+2. Add two repository secrets under Settings → Secrets and variables → Actions:
+   - `PORTQUIZ_KEYSTORE_BASE64`: the output of `base64 -w0 portquiz-release.jks` (on macOS: `base64 -i portquiz-release.jks`)
+   - `PORTQUIZ_KEYSTORE_PASSWORD`: the keystore password
+
+   Or with the GitHub CLI:
+
+   ```shell
+   base64 -w0 portquiz-release.jks | gh secret set PORTQUIZ_KEYSTORE_BASE64
+   gh secret set PORTQUIZ_KEYSTORE_PASSWORD
+   ```
+
+3. Back up `portquiz-release.jks` and its password somewhere safe, then delete the local copy. If the key is lost, new releases cannot be installed over existing ones; the app has to be uninstalled first.
+
+To build a signed release locally, set `PORTQUIZ_KEYSTORE` to the keystore's path and `PORTQUIZ_KEYSTORE_PASSWORD` to its password, then run `./gradlew assembleRelease -PportquizVersion=v1.2.3`.
