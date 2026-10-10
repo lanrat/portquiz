@@ -5,12 +5,20 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log"
 	"net"
+	"runtime"
+	"sync"
 )
 
+// udpReadBuffer is the receive buffer requested for the UDP socket, so bursts
+// of packets from fast clients are not dropped.
+const udpReadBuffer = 4 << 20
+
 // udpServer starts a UDP server on the specified address and handles incoming packets.
-// It reads packets in a loop and responds to those containing the magic string.
+// Several goroutines read from the same socket so replies keep up with fast clients,
+// and each responds to packets containing the magic string.
 func udpServer(ctx context.Context, listenAddr string) error {
 	log.Printf("starting UDP server on %s", listenAddr)
 	addr, err := net.ResolveUDPAddr("udp", listenAddr)
@@ -23,35 +31,39 @@ func udpServer(ctx context.Context, listenAddr string) error {
 		return err
 	}
 	defer func() {
-		if err := l.Close(); err != nil {
+		if err := l.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 			log.Printf("UDP listener close error: %s", err)
 		}
 	}()
+	if err := setUDPReadBuffer(l, udpReadBuffer); err != nil && *verbose {
+		log.Printf("UDP read buffer warning: %s", err)
+	}
+
+	// close the socket on cancellation to unblock the readers
+	stop := context.AfterFunc(ctx, func() { _ = l.Close() })
+	defer stop()
+
+	var wg sync.WaitGroup
+	for range udpReaders() {
+		wg.Go(func() { udpRead(l) })
+	}
+	wg.Wait()
+	return ctx.Err()
+}
+
+// udpReaders returns how many goroutines read from the UDP socket.
+func udpReaders() int {
+	return min(max(runtime.NumCPU(), 2), 8)
+}
+
+// udpRead handles packets on l until it is closed.
+func udpRead(l *net.UDPConn) {
 	buffer := make([]byte, 128)
-
-	// Start a goroutine to handle context cancellation
-	go func() {
-		<-ctx.Done()
-		if err := l.Close(); err != nil {
-			log.Printf("UDP listener close on context cancel error: %s", err)
-		}
-	}()
-
 	for {
-		// Check for cancellation before potentially blocking call
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
 		n, remoteAddr, err := l.ReadFromUDP(buffer)
 		if err != nil {
-			// Check if context was cancelled
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
+			if errors.Is(err, net.ErrClosed) {
+				return
 			}
 			if *verbose {
 				log.Printf("UDP read error: %s", err)
