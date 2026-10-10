@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- only arm64 devices are supported -->
+    <issue id="ChromeOsAbiSupport" severity="ignore" />
+    <!-- the app is English only, where these strings read correctly -->
+    <issue id="PluralsCandidate" severity="ignore" />
+    <!-- port ranges such as 1000-2000 are typed with a hyphen -->
+    <issue id="TypographyDashes" severity="ignore" />
+    <!-- the adaptive icon must stay in mipmap-anydpi-v26: AGP does not merge
+         an unqualified mipmap-anydpi folder -->
+    <issue id="ObsoleteSdkInt">
+        <ignore path="src/main/res/mipmap-anydpi-v26" />
+    </issue>
+    <!-- targetSdk is raised deliberately, see app/build.gradle.kts -->
+    <issue id="OldTargetApi" severity="ignore" />
+</lint>

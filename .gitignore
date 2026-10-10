@@ -1,3 +1,4 @@
-portquiz
-portquiz-server
+# binaries built by make, in the repository root only
+/portquiz
+/portquiz-server
 dist/

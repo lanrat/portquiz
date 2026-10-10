@@ -1,0 +1,7 @@
+.gradle/
+build/
+local.properties
+*.keystore
+*.jks
+# gomobile and gobind built by gomobile/bind.sh
+gomobile/.bin/

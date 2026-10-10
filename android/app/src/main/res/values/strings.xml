@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">portquiz</string>
+    <string name="github">GitHub</string>
+    <string name="github_url" translatable="false">https://github.com/lanrat/portquiz</string>
+    <string name="host_hint">Server (IP address or hostname)</string>
+    <string name="ports_hint">Ports: empty for all, or e.g. 22,80,1000-2000</string>
+    <string name="tcp">TCP</string>
+    <string name="udp">UDP</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+    <string name="error_no_host">Enter the server to test</string>
+    <string name="error_no_protocol">Select TCP, UDP or both</string>
+    <string name="status_resolving">Starting scan of %1$s…</string>
+    <string name="status_running">%1$d / %2$d tested · %3$d open%4$s</string>
+    <string name="status_eta"> · about %1$s left</string>
+    <string name="status_done">Tested %1$d in %2$s · %3$d open</string>
+    <string name="status_canceled">Stopped after %1$d of %2$d · %3$d open</string>
+    <string name="status_error">Error: %1$s</string>
+    <string name="status_missed">Warning: %1$d port(s) only responded to a slower recheck, so ports listed as closed may be open.</string>
+    <string name="channel_progress">Scan progress</string>
+    <string name="channel_results">Scan results</string>
+    <string name="notification_title">Testing %1$s</string>
+    <string name="notification_done_title">Finished testing %1$s</string>
+</resources>

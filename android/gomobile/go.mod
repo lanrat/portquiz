@@ -13,3 +13,8 @@ require (
 )
 
 replace portquiz => ../..
+
+tool (
+	golang.org/x/mobile/cmd/gobind
+	golang.org/x/mobile/cmd/gomobile
+)

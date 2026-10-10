@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- a network port socket, used for the notification and launcher icons -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M3,5h18v12h-5v3h-8v-3h-5z M5,7v8h5v3h4v-3h5v-8z M7,8h1.5v3h-1.5z M9.5,8h1.5v3h-1.5z M13,8h1.5v3h-1.5z M15.5,8h1.5v3h-1.5z" />
+</vector>
