@@ -2,7 +2,7 @@
 
 Test all outbound TCP/UDP ports for connectivity to a remote host.
 
-Testing all ports can take 3-10 minutes depending on connection speed.
+Testing all ports takes a few minutes when most ports are reachable. Each port blocked by a firewall that silently drops traffic waits out the timeout, so a full scan of a heavily filtered network can take up to about 45 minutes per protocol with the default settings (see [Performance is slow](#troubleshooting)).
 
 Can also be used to detect passive DPI Firewalls that block traffic not looking like the expected service for a given port.
 
@@ -37,7 +37,10 @@ make
 ## Quick Start
 
 ```bash
-# Test connectivity to a server (most common use case)
+# Test all TCP ports (the default when neither -tcp nor -udp is given)
+./portquiz example.com
+
+# Test all TCP and UDP ports
 ./portquiz -tcp -udp example.com
 
 # Test specific ports only
@@ -69,22 +72,24 @@ Usage of ./portquiz-server:
   -port uint
         default port to listen on which will have traffic redirected to (default 1337)
   -tcp
-        start TCP server
+        start TCP server (both TCP and UDP start if neither is set)
   -timeout duration
         amount of time for each connection (default 10s)
   -udp
-        start UDP server
+        start UDP server (both TCP and UDP start if neither is set)
   -verbose
         enable verbose logging
+  -version
+        show version information
 ```
 
 ### Example Server
 
 ```shell
 # start server
-# listen on TCP and UDP ports
+# serves TCP and UDP (the default when neither -tcp nor -udp is given)
 # listens on IPv4: 192.0.2.123 and IPv6: 2001:0DB8::1
-./portquiz-server -tcp -udp -listen 192.0.2.123,2001:0DB8::1
+./portquiz-server -listen 192.0.2.123,2001:0DB8::1
 ```
 
 ## Client
@@ -111,19 +116,19 @@ Usage of ./portquiz:
   -open
         print only open ports
   -parallel uint
-        number of worker threads (default 20)
+        number of ports to test at once (default 100)
   -password string
         magicString to use, must be the same on client/server (default "portquiz")
   -port string
         comma separated list of ports to test
   -retry uint
-        retry count (default 3)
+        number of times to retry a port that did not respond (default 1)
   -tcp
-        start TCP client
+        test TCP ports (default if neither -tcp nor -udp is set)
   -timeout duration
-        amount of time for each connection (default 5s)
+        amount of time for each connection (default 2s)
   -udp
-        start UDP client
+        test UDP ports
   -verbose
         enable verbose logging
   -version
@@ -160,6 +165,13 @@ Usage of ./portquiz:
 
 **Performance is slow:**
 
-- Reduce parallelism with `-parallel` flag
-- Test specific ports instead of all ports
-- Adjust timeout values for faster networks
+Ports that are blocked by a firewall which silently drops traffic are the slow ones: each takes `-timeout` × (`-retry` + 1) to be reported as closed (4 seconds with the defaults).
+
+- Test specific ports instead of all ports with `-port`
+- Lower `-timeout` and `-retry` on fast, reliable networks
+- Raise `-parallel` to test more ports at once; very high values can cause UDP replies to be dropped or trip firewall rate limits
+
+**Results are inconsistent between runs (especially UDP):**
+
+- Increase `-retry`, since UDP packets can be lost
+- Reduce `-parallel`

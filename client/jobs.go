@@ -13,7 +13,7 @@ import (
 
 // job represents a single port testing task.
 type job struct {
-	try  uint   // Current retry attempt number
+	try  uint   // Number of attempts made so far
 	kind string // Protocol and IP version (e.g., "tcp4", "udp6")
 	port int    // Port number to test
 	open bool   // Whether the port was found to be open
@@ -157,7 +157,8 @@ func worker(ctx context.Context, jobs, results chan *job) error {
 				return nil
 			}
 
-			for ; j.try < *retry && !j.open; j.try++ {
+			// the first attempt plus up to -retry retries
+			for ; j.try <= *retry && !j.open; j.try++ {
 				err := try()
 				if err != nil {
 					return err

@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	tcp         = flag.Bool("tcp", false, "start TCP server")
-	udp         = flag.Bool("udp", false, "start UDP server")
+	tcp         = flag.Bool("tcp", false, "start TCP server (both TCP and UDP start if neither is set)")
+	udp         = flag.Bool("udp", false, "start UDP server (both TCP and UDP start if neither is set)")
 	listenIPs   = flag.String("listen", "", "comma separated list of non-loopback IPs to listen on (required)")
 	verbose     = flag.Bool("verbose", false, "enable verbose logging")
 	timeout     = flag.Duration("timeout", time.Second*10, "amount of time for each connection")
@@ -53,9 +53,10 @@ func main() {
 
 	magicStringBytes = []byte(*magicString)
 
+	// if neither protocol is set, serve both
 	if !*tcp && !*udp {
-		err := errors.New("must set TCP and/or UDP")
-		log.Fatal(err)
+		*tcp = true
+		*udp = true
 	}
 
 	if strings.Trim(*listenIPs, ",") == "" {

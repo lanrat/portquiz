@@ -17,12 +17,12 @@ import (
 )
 
 var (
-	tcp         = flag.Bool("tcp", false, "start TCP client")
-	udp         = flag.Bool("udp", false, "start UDP client")
+	tcp         = flag.Bool("tcp", false, "test TCP ports (default if neither -tcp nor -udp is set)")
+	udp         = flag.Bool("udp", false, "test UDP ports")
 	verbose     = flag.Bool("verbose", false, "enable verbose logging")
-	timeout     = flag.Duration("timeout", time.Second*5, "amount of time for each connection")
-	retry       = flag.Uint("retry", 3, "retry count")
-	parallel    = flag.Uint("parallel", 20, "number of worker threads")
+	timeout     = flag.Duration("timeout", time.Second*2, "amount of time for each connection")
+	retry       = flag.Uint("retry", 1, "number of times to retry a port that did not respond")
+	parallel    = flag.Uint("parallel", 100, "number of ports to test at once")
 	open        = flag.Bool("open", false, "print only open ports")
 	closed      = flag.Bool("closed", false, "print only closed ports")
 	port        = flag.String("port", "", "comma separated list of ports to test")
@@ -68,8 +68,13 @@ func main() {
 		*closed = true
 	}
 
+	// if neither protocol is set, test TCP
 	if !*tcp && !*udp {
-		log.Fatal(errors.New("must set TCP and/or UDP"))
+		*tcp = true
+	}
+
+	if *parallel < 1 {
+		log.Fatal(errors.New("-parallel must be at least 1"))
 	}
 
 	ports, err := parsePorts()
