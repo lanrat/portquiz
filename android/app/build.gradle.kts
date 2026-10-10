@@ -2,26 +2,37 @@ plugins {
     id("com.android.application")
 }
 
-// The release version, passed as -PportquizVersion=v1.4.0 when building a
-// release; local builds are "dev".
-val portquizVersion = (findProperty("portquizVersion") as String?)?.removePrefix("v") ?: "dev"
+// The app's version, the same as the command line client's: the release tag
+// passed by the release workflow as -PportquizVersion=v1.4.0, or for other
+// builds `git describe --tags --always --dirty`, as the Makefile uses. The
+// leading "v" is dropped, as in the release binaries.
+val portquizVersion: String = (
+    providers.gradleProperty("portquizVersion").orNull
+        ?: runCatching {
+            providers.exec {
+                commandLine("git", "describe", "--tags", "--always", "--dirty")
+            }.standardOutput.asText.get().trim()
+        }.getOrNull()?.takeIf { it.isNotEmpty() }
+        ?: "dev"
+    ).removePrefix("v")
 
 // versionCode must grow with every release for Android to install it as an
-// update: 1.4.0 becomes 10400. Local builds use 1.
+// update: 1.4.0 becomes 10400. A build between releases, such as
+// 1.4.0-3-gabc1234, gets its last release's code; builds without a version
+// use 1.
 fun versionCodeOf(version: String): Int {
-    val parts = version.split(".").map { it.toIntOrNull() }
-    if (parts.size != 3 || parts.any { it == null }) return 1
-    val (major, minor, patch) = parts.map { it!! }
-    return major * 10000 + minor * 100 + patch
+    val m = Regex("""^(\d+)\.(\d+)\.(\d+)""").find(version) ?: return 1
+    val (major, minor, patch) = m.destructured
+    return major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt()
 }
 
 android {
-    namespace = "io.github.lanrat.portquiz"
+    namespace = "com.vorsk.portquiz"
     compileSdk = 37
     ndkVersion = "30.0.16248370"
 
     defaultConfig {
-        applicationId = "io.github.lanrat.portquiz"
+        applicationId = "com.vorsk.portquiz"
         minSdk = 29
         // Raise to 37 after testing on Android 17, whose behavior changes
         // for apps targeting it have not been tried with this app yet.

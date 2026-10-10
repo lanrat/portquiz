@@ -34,6 +34,8 @@ cd android
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
+The app's version, shown next to its title, is the same as the command line client's: the release tag for releases, otherwise `git describe --tags --always --dirty` as with `make`.
+
 Gradle builds the Go library first with `gomobile/bind.sh`, which builds `gomobile` and `gobind` from the versions pinned in `gomobile/go.mod`. `./gradlew testDebugUnitTest lint` runs the app's tests and checks, and `go test ./...` in `gomobile/` tests the Go adapter.
 
 Layout:

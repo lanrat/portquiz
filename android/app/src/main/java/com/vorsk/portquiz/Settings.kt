@@ -1,7 +1,7 @@
-package io.github.lanrat.portquiz
+package com.vorsk.portquiz
 
 import android.content.Context
-import io.github.lanrat.portquiz.mobile.Mobile
+import com.vorsk.portquiz.mobile.Mobile
 
 /** The settings of the last scan, restored when the app opens. */
 class Settings(context: Context) {

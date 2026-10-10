@@ -1,4 +1,4 @@
-package io.github.lanrat.portquiz
+package com.vorsk.portquiz
 
 import android.Manifest
 import android.app.Activity
@@ -80,6 +80,7 @@ class MainActivity : Activity() {
 
         applyInsets(findViewById(R.id.root))
 
+        findViewById<TextView>(R.id.version).text = BuildConfig.VERSION_NAME
         findViewById<View>(R.id.github).setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.github_url))))
         }

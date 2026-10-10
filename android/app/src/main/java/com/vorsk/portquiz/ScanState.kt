@@ -1,4 +1,4 @@
-package io.github.lanrat.portquiz
+package com.vorsk.portquiz
 
 import android.os.SystemClock
 

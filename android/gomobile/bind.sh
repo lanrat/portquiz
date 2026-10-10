@@ -17,7 +17,7 @@ go build -o "$bin/" golang.org/x/mobile/cmd/gomobile golang.org/x/mobile/cmd/gob
 PATH="$bin:$PATH" gomobile bind \
 	-target=android/arm64 \
 	-androidapi 29 \
-	-javapkg=io.github.lanrat.portquiz \
+	-javapkg=com.vorsk.portquiz \
 	-trimpath \
 	-ldflags="-s -w" \
 	-o "$out" \

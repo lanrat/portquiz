@@ -1,4 +1,4 @@
-package io.github.lanrat.portquiz
+package com.vorsk.portquiz
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -14,10 +14,10 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
-import io.github.lanrat.portquiz.mobile.Listener
-import io.github.lanrat.portquiz.mobile.Mobile
-import io.github.lanrat.portquiz.mobile.Scan
-import io.github.lanrat.portquiz.mobile.Summary
+import com.vorsk.portquiz.mobile.Listener
+import com.vorsk.portquiz.mobile.Mobile
+import com.vorsk.portquiz.mobile.Scan
+import com.vorsk.portquiz.mobile.Summary
 import kotlin.concurrent.thread
 
 /**
@@ -181,8 +181,8 @@ class ScanService : Service() {
             .build()
 
     companion object {
-        const val ACTION_START = "io.github.lanrat.portquiz.START"
-        const val ACTION_STOP = "io.github.lanrat.portquiz.STOP"
+        const val ACTION_START = "com.vorsk.portquiz.START"
+        const val ACTION_STOP = "com.vorsk.portquiz.STOP"
         const val EXTRA_HOST = "host"
         const val EXTRA_PORTS = "ports"
         const val EXTRA_TCP = "tcp"
