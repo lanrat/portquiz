@@ -47,7 +47,7 @@ class ScanService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> start(intent)
+            ACTION_START -> start()
             ACTION_STOP -> {
                 // the scan may still be starting; it is canceled once it exists
                 stopRequested = true
@@ -58,24 +58,19 @@ class ScanService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun start(intent: Intent) {
+    private fun start() {
         if (ScanState.running) {
             // every startForegroundService call must be followed by
             // startForeground, even when a scan is already running
             startForeground(NOTIFICATION_PROGRESS, progressNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
             return
         }
-        val host = intent.getStringExtra(EXTRA_HOST).orEmpty()
-        val config = Mobile.newConfig().apply {
-            this.host = host
-            ports = intent.getStringExtra(EXTRA_PORTS).orEmpty()
-            tcp = intent.getBooleanExtra(EXTRA_TCP, true)
-            udp = intent.getBooleanExtra(EXTRA_UDP, false)
-            intent.getStringExtra(EXTRA_PASSWORD)?.let { password = it }
-        }
+        // MainActivity saves the settings before starting the scan
+        val settings = Settings(this).load()
+        val config = settings.toConfig()
 
         stopRequested = false
-        ScanState.begin(host)
+        ScanState.begin(settings.host)
         notifications.cancel(NOTIFICATION_RESULT)
         startForeground(NOTIFICATION_PROGRESS, progressNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         // keep the CPU running while the screen is off; the timeout is a
@@ -183,11 +178,6 @@ class ScanService : Service() {
     companion object {
         const val ACTION_START = "com.vorsk.portquiz.START"
         const val ACTION_STOP = "com.vorsk.portquiz.STOP"
-        const val EXTRA_HOST = "host"
-        const val EXTRA_PORTS = "ports"
-        const val EXTRA_TCP = "tcp"
-        const val EXTRA_UDP = "udp"
-        const val EXTRA_PASSWORD = "password"
 
         private const val CHANNEL_PROGRESS = "progress"
         private const val CHANNEL_RESULTS = "results"

@@ -7,6 +7,27 @@
     <string name="ports_hint">Ports: empty for all, or e.g. 22,80,1000-2000</string>
     <string name="password">Password</string>
     <string name="password_hint">must match the server\'s -password</string>
+    <string name="ip_version">IP version</string>
+    <string-array name="ip_versions">
+        <item>Auto</item>
+        <item>IPv4</item>
+        <item>IPv6</item>
+        <item>IPv4 and IPv6</item>
+    </string-array>
+    <string name="advanced_shown">Advanced ▾</string>
+    <string name="advanced_hidden">Advanced ▸</string>
+    <string name="timeout">Timeout (ms)</string>
+    <string name="adaptive">Adaptive timeout</string>
+    <string name="adaptive_hint">Shortens the timeout to fit how quickly open ports respond, up to the timeout above.</string>
+    <string name="rate">Connections per second (0 for no limit)</string>
+    <string name="retries">Retries</string>
+    <string name="retries_hint">auto</string>
+    <string name="parallel">Ports tested at once</string>
+    <string name="reset_defaults">Reset to defaults</string>
+    <string name="filter_all">All</string>
+    <string name="filter_open">Open</string>
+    <string name="filter_closed">Closed</string>
+    <string name="no_results">No ranges match the filter.</string>
     <string name="tcp">TCP</string>
     <string name="udp">UDP</string>
     <string name="start">Start</string>

@@ -18,7 +18,9 @@ Enter the portquiz server and optionally the ports to test (empty for all ports,
 
 Scans keep running with the screen off or the app in the background: progress is shown in a notification, which also has a Stop button. A full scan of one protocol takes at least about 2 minutes. The settings of the last scan are restored the next time the app opens.
 
-The app uses the client's default settings: adaptive timeouts, at most 500 connections per second, and one retry for ports that do not respond.
+The IP version setting chooses between testing whichever address the server's name resolves to (Auto), IPv4, IPv6, or every port over both. Below the results, All, Open and Closed choose which ranges are shown; this only filters the list, so it can be changed after a scan.
+
+Advanced settings, under Advanced, match the command line client's options and defaults: the timeout in milliseconds and whether it adapts to how quickly open ports respond (`-timeout`, `-adaptive`), connections started per second with 0 for no limit (`-rate`), retries for ports that do not respond, blank for the default (`-retry`), and how many ports are tested at once (`-parallel`). Reset to defaults restores them, and a blank field uses its default.
 
 ## Build
 

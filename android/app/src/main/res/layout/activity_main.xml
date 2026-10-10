@@ -30,80 +30,234 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="?android:attr/selectableItemBackground"
-            android:minHeight="48dp"
             android:gravity="center_vertical"
+            android:minHeight="48dp"
             android:paddingHorizontal="8dp"
             android:text="@string/github"
             android:textColor="?android:attr/colorAccent" />
     </LinearLayout>
 
-    <EditText
-        android:id="@+id/host"
+    <!-- the settings scroll within at most half the screen, see SettingsScrollView -->
+    <com.vorsk.portquiz.SettingsScrollView
+        android:id="@+id/settings"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:autofillHints="no"
-        android:hint="@string/host_hint"
-        android:imeOptions="actionNext"
-        android:inputType="textUri"
-        android:singleLine="true" />
+        android:layout_height="wrap_content">
 
-    <EditText
-        android:id="@+id/ports"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:autofillHints="no"
-        android:digits="0123456789,- "
-        android:hint="@string/ports_hint"
-        android:imeOptions="actionNext"
-        android:inputType="text"
-        android:singleLine="true" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <TextView
-            android:id="@+id/password_label"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:labelFor="@+id/password"
-            android:text="@string/password" />
+            android:orientation="vertical">
 
-        <!-- the password is a shared marker string, not a secret, so it is
-             shown; the input type keeps the keyboard from learning it -->
-        <EditText
-            android:id="@+id/password"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:autofillHints="no"
-            android:hint="@string/password_hint"
-            android:imeOptions="actionDone"
-            android:inputType="textVisiblePassword|textNoSuggestions"
-            android:singleLine="true" />
-    </LinearLayout>
+            <EditText
+                android:id="@+id/host"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:autofillHints="no"
+                android:hint="@string/host_hint"
+                android:imeOptions="actionNext"
+                android:inputType="textUri"
+                android:singleLine="true" />
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
+            <EditText
+                android:id="@+id/ports"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:autofillHints="no"
+                android:digits="0123456789,- "
+                android:hint="@string/ports_hint"
+                android:imeOptions="actionNext"
+                android:inputType="text"
+                android:singleLine="true" />
 
-        <CheckBox
-            android:id="@+id/tcp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="24dp"
-            android:text="@string/tcp" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-        <CheckBox
-            android:id="@+id/udp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/udp" />
-    </LinearLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:labelFor="@+id/password"
+                    android:text="@string/password" />
+
+                <!-- the password is a shared marker string, not a secret, so it is
+                     shown; the input type keeps the keyboard from learning it -->
+                <EditText
+                    android:id="@+id/password"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:autofillHints="no"
+                    android:hint="@string/password_hint"
+                    android:imeOptions="actionDone"
+                    android:inputType="textVisiblePassword|textNoSuggestions"
+                    android:singleLine="true" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/tcp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="16dp"
+                    android:text="@string/tcp" />
+
+                <CheckBox
+                    android:id="@+id/udp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="16dp"
+                    android:text="@string/udp" />
+
+                <Spinner
+                    android:id="@+id/ip_version"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:contentDescription="@string/ip_version"
+                    android:minHeight="48dp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/advanced_toggle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?android:attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:minHeight="48dp"
+                android:text="@string/advanced_hidden"
+                android:textColor="?android:attr/colorAccent" />
+
+            <LinearLayout
+                android:id="@+id/advanced"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"
+                        android:labelFor="@+id/timeout"
+                        android:text="@string/timeout" />
+
+                    <EditText
+                        android:id="@+id/timeout"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:autofillHints="no"
+                        android:inputType="number"
+                        android:singleLine="true" />
+                </LinearLayout>
+
+                <CheckBox
+                    android:id="@+id/adaptive"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/adaptive" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="32dp"
+                    android:text="@string/adaptive_hint"
+                    android:textAppearance="?android:attr/textAppearanceSmall" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"
+                        android:labelFor="@+id/rate"
+                        android:text="@string/rate" />
+
+                    <EditText
+                        android:id="@+id/rate"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:autofillHints="no"
+                        android:inputType="number"
+                        android:singleLine="true" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"
+                        android:labelFor="@+id/retries"
+                        android:text="@string/retries" />
+
+                    <EditText
+                        android:id="@+id/retries"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:autofillHints="no"
+                        android:hint="@string/retries_hint"
+                        android:inputType="number"
+                        android:singleLine="true" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"
+                        android:labelFor="@+id/parallel"
+                        android:text="@string/parallel" />
+
+                    <EditText
+                        android:id="@+id/parallel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:autofillHints="no"
+                        android:inputType="number"
+                        android:singleLine="true" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/reset"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="end"
+                    android:text="@string/reset_defaults" />
+            </LinearLayout>
+        </LinearLayout>
+    </com.vorsk.portquiz.SettingsScrollView>
 
     <Button
         android:id="@+id/start"
@@ -126,12 +280,48 @@
         android:layout_marginTop="4dp"
         android:textAppearance="?android:attr/textAppearanceSmall" />
 
+    <!-- filters the results shown; it does not change the scan -->
+    <RadioGroup
+        android:id="@+id/filter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/filter_all"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:text="@string/filter_all" />
+
+        <RadioButton
+            android:id="@+id/filter_open"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:text="@string/filter_open" />
+
+        <RadioButton
+            android:id="@+id/filter_closed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/filter_closed" />
+    </RadioGroup>
+
     <ListView
         android:id="@+id/results"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="8dp"
         android:layout_weight="1"
         android:divider="@null"
         android:fastScrollEnabled="true" />
+
+    <TextView
+        android:id="@+id/no_results"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="@string/no_results"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:visibility="gone" />
 </LinearLayout>

@@ -34,6 +34,10 @@ object ScanState {
         private set
     val lines = ArrayList<Line>()
 
+    /** Increases with every scan, so views can tell a new scan's lines apart. */
+    var generation = 0
+        private set
+
     private val listeners = LinkedHashSet<() -> Unit>()
 
     fun addListener(listener: () -> Unit) {
@@ -47,6 +51,7 @@ object ScanState {
     private fun changed() = listeners.toList().forEach { it() }
 
     fun begin(host: String) {
+        generation++
         this.host = host
         running = true
         done = 0
