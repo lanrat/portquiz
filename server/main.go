@@ -14,6 +14,8 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -22,7 +24,7 @@ import (
 var (
 	tcp         = flag.Bool("tcp", false, "start TCP server")
 	udp         = flag.Bool("udp", false, "start UDP server")
-	listenIPs   = flag.String("listen", "127.0.0.123", "comma separated list of IPs to listen on")
+	listenIPs   = flag.String("listen", "", "comma separated list of non-loopback IPs to listen on (required)")
 	verbose     = flag.Bool("verbose", false, "enable verbose logging")
 	timeout     = flag.Duration("timeout", time.Second*10, "amount of time for each connection")
 	port        = flag.Uint("port", 1337, "default port to listen on which will have traffic redirected to")
@@ -36,6 +38,7 @@ var (
 	ctx              context.Context
 	magicStringBytes []byte
 	Version          = "dev"
+	cleanupOnce      sync.Once
 )
 
 // main initializes and starts the portquiz server with the specified configuration.
@@ -55,11 +58,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if strings.Trim(*listenIPs, ",") == "" {
+		log.Fatal(errors.New("must set -listen"))
+	}
+
 	g, ctx = errgroup.WithContext(context.Background())
 
 	// setup fw cleanup if killed
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		// run cleanup on context canceled or interrupt
 		select {
@@ -81,6 +88,7 @@ func main() {
 		if !*noIPTables {
 			err := addFWRules(ip, listenPort)
 			if err != nil {
+				cleanup()
 				log.Fatal(err)
 			}
 		}
@@ -96,18 +104,23 @@ func main() {
 
 	err := g.Wait()
 	if err != nil {
+		cleanup()
 		log.Fatal(err)
 	}
 }
 
 // cleanup removes all firewall rules created by the server and performs shutdown tasks.
+// It is safe to call from multiple goroutines; the work runs only once and
+// concurrent callers block until it has finished.
 func cleanup() {
-	if *verbose {
-		log.Printf("Cleaning up for exit")
-	}
-	if !*noIPTables {
-		if err := cleanupFW(); err != nil {
-			log.Printf("Cleanup firewall error: %s", err)
+	cleanupOnce.Do(func() {
+		if *verbose {
+			log.Printf("Cleaning up for exit")
 		}
-	}
+		if !*noIPTables {
+			if err := cleanupFW(); err != nil {
+				log.Printf("Cleanup firewall error: %s", err)
+			}
+		}
+	})
 }

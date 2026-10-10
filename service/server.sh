@@ -7,11 +7,16 @@ PID_FILE="/run/portquiz.pid"
 
 echo $$ > "$PID_FILE"
 
-IP4="$(curl -s4 http://ip.toor.sh)"
-IP6="$(curl -s6 http://ip.toor.sh)"
+# either address family may be unavailable, so a failed lookup is not fatal
+IP4="$(curl -fsS4 --max-time 10 https://ip.toor.sh || true)"
+IP6="$(curl -fsS6 --max-time 10 https://ip.toor.sh || true)"
 
-echo "WAN IPs: $IP4 $IP6"
+echo "WAN IPs: ${IP4:-none} ${IP6:-none}"
+
+if [[ -z "$IP4" && -z "$IP6" ]]; then
+    echo "unable to determine any WAN IP" >&2
+    exit 1
+fi
 
 exec "portquiz-server" -tcp -udp -listen "$IP4,$IP6"
-
 

@@ -98,16 +98,20 @@ func isOpenTCP(ctx context.Context, port int, network string) bool {
 		log.Printf("TCP SetWriteDeadline warning: %s", err)
 	}
 	_, err = conn.Write(magicStringBytes)
-	if err != nil && *verbose {
-		log.Printf("%s write error: %s", network, err)
+	if err != nil {
+		if *verbose {
+			log.Printf("%s write error: %s", network, err)
+		}
 		return false
 	}
 
 	// receive data
 	buffer := make([]byte, 128)
 	n, err := conn.Read(buffer)
-	if err != nil && *verbose {
-		log.Printf("%s read error: %s", network, err)
+	if err != nil {
+		if *verbose {
+			log.Printf("%s read error: %s", network, err)
+		}
 		return false
 	}
 

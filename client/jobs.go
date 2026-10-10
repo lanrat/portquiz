@@ -23,7 +23,7 @@ var wg sync.WaitGroup
 
 // versions returns the IP version suffixes to use based on command line flags.
 // Returns:
-//   - [""] for default (both IPv4 and IPv6)
+//   - [""] for default (whichever IP version the resolver picks)
 //   - ["4"] for IPv4 only
 //   - ["6"] for IPv6 only
 //   - ["4", "6"] for both explicitly
@@ -93,6 +93,9 @@ func jobSource(ctx context.Context, jobs, results chan *job) error {
 			p, err := strconv.Atoi(ps)
 			if err != nil {
 				return err
+			}
+			if p < 1 || p > maxPort {
+				return fmt.Errorf("invalid port %d: must be between 1 and %d", p, maxPort)
 			}
 			err = addJob(p, ver)
 			if err != nil {

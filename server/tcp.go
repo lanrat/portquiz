@@ -82,8 +82,10 @@ func handleTCPConnection(c *net.TCPConn) {
 	buffer := make([]byte, 128)
 
 	n, err := c.Read(buffer)
-	if err != nil && *verbose {
-		log.Printf("TCP Read Error from %s: %s", c.RemoteAddr(), err)
+	if err != nil {
+		if *verbose {
+			log.Printf("TCP Read Error from %s: %s", c.RemoteAddr(), err)
+		}
 		return
 	}
 	if *verbose {
@@ -96,7 +98,6 @@ func handleTCPConnection(c *net.TCPConn) {
 		_, err := c.Write(magicStringBytes)
 		if err != nil && *verbose {
 			log.Printf("TCP Write Error from %s: %s", c.RemoteAddr(), err)
-			return
 		}
 	}
 }

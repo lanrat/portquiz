@@ -79,8 +79,10 @@ func isOpenUDP(ctx context.Context, port int, network string) bool {
 
 	// send data
 	_, err = conn.Write(magicStringBytes)
-	if err != nil && *verbose {
-		log.Printf("%s write error: %s", network, err)
+	if err != nil {
+		if *verbose {
+			log.Printf("%s write error: %s", network, err)
+		}
 		return false
 	}
 
@@ -101,8 +103,10 @@ func isOpenUDP(ctx context.Context, port int, network string) bool {
 		}
 		return false
 	}
-	if err != nil && *verbose {
-		log.Printf("%s read error: %s", network, err)
+	if err != nil {
+		if *verbose {
+			log.Printf("%s read error: %s", network, err)
+		}
 		return false
 	}
 

@@ -6,7 +6,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # install portquiz
 echo "> adding links to binaries"
-ln -sf "$(realpath "$SCRIPT_DIR/../portquiz-client")" /usr/local/bin/portquiz-client
+ln -sf "$(realpath "$SCRIPT_DIR/../portquiz")" /usr/local/bin/portquiz
 ln -sf "$(realpath "$SCRIPT_DIR/../portquiz-server")" /usr/local/bin/portquiz-server
 
 # install service file

@@ -27,10 +27,6 @@ func udpServer(ctx context.Context, listenAddr string) error {
 			log.Printf("UDP listener close error: %s", err)
 		}
 	}()
-	if err := l.SetReadBuffer(len(magicStringBytes) * 2); err != nil && *verbose {
-		log.Printf("UDP SetReadBuffer error: %s", err)
-	}
-
 	buffer := make([]byte, 128)
 
 	// Start a goroutine to handle context cancellation
@@ -72,7 +68,6 @@ func udpServer(ctx context.Context, listenAddr string) error {
 			_, err = l.WriteToUDP(buffer[:n], remoteAddr)
 			if err != nil && *verbose {
 				log.Printf("UDP write error to [%s]: %s", remoteAddr, err)
-				continue
 			}
 		}
 	}

@@ -66,10 +66,7 @@ func main() {
 	}
 
 	if !*tcp && !*udp {
-		err := errors.New("must set TCP and/or UDP")
-		if err != nil {
-			log.Fatal(err)
-		}
+		log.Fatal(errors.New("must set TCP and/or UDP"))
 	}
 
 	g, ctx = errgroup.WithContext(context.Background())

@@ -61,7 +61,7 @@ make
 $ ./portquiz-server -h
 Usage of ./portquiz-server:
   -listen string
-        comma separated list of IPs to listen on (default "127.0.0.123")
+        comma separated list of non-loopback IPs to listen on (required)
   -no-iptables
         disable automatically creating iptables rules
   -password string
