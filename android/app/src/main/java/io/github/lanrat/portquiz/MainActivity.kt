@@ -24,6 +24,7 @@ import android.widget.TextView
 class MainActivity : Activity() {
     private lateinit var host: EditText
     private lateinit var ports: EditText
+    private lateinit var password: EditText
     private lateinit var tcp: CheckBox
     private lateinit var udp: CheckBox
     private lateinit var start: Button
@@ -59,6 +60,7 @@ class MainActivity : Activity() {
 
         host = findViewById(R.id.host)
         ports = findViewById(R.id.ports)
+        password = findViewById(R.id.password)
         tcp = findViewById(R.id.tcp)
         udp = findViewById(R.id.udp)
         start = findViewById(R.id.start)
@@ -87,6 +89,7 @@ class MainActivity : Activity() {
         if (savedInstanceState == null) {
             host.setText(settings.host)
             ports.setText(settings.ports)
+            password.setText(settings.password)
             tcp.isChecked = settings.tcp
             udp.isChecked = settings.udp
         }
@@ -117,7 +120,11 @@ class MainActivity : Activity() {
         }
         udp.error = null
 
-        Settings(this).save(server, ports.text.toString().trim(), tcp.isChecked, udp.isChecked)
+        // an empty password means the default
+        if (password.text.isEmpty()) password.setText(Settings.DEFAULT_PASSWORD)
+        val pass = password.text.toString()
+
+        Settings(this).save(server, ports.text.toString().trim(), tcp.isChecked, udp.isChecked, pass)
 
         // the progress notification needs this permission on Android 13+;
         // scanning works without it
@@ -134,6 +141,7 @@ class MainActivity : Activity() {
                 .putExtra(ScanService.EXTRA_PORTS, ports.text.toString().trim())
                 .putExtra(ScanService.EXTRA_TCP, tcp.isChecked)
                 .putExtra(ScanService.EXTRA_UDP, udp.isChecked)
+                .putExtra(ScanService.EXTRA_PASSWORD, pass)
         )
         main.removeCallbacks(tick)
         main.post(tick)
@@ -146,7 +154,7 @@ class MainActivity : Activity() {
     private fun render() {
         val running = ScanState.running
         start.setText(if (running) R.string.stop else R.string.start)
-        for (v in listOf(host, ports, tcp, udp)) v.isEnabled = !running
+        for (v in listOf(host, ports, password, tcp, udp)) v.isEnabled = !running
 
         progress.visibility = if (ScanState.startedAt == 0L) View.INVISIBLE else View.VISIBLE
         progress.isIndeterminate = running && ScanState.total == 0L

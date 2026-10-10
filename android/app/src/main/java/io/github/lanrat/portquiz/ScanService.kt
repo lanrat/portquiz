@@ -71,6 +71,7 @@ class ScanService : Service() {
             ports = intent.getStringExtra(EXTRA_PORTS).orEmpty()
             tcp = intent.getBooleanExtra(EXTRA_TCP, true)
             udp = intent.getBooleanExtra(EXTRA_UDP, false)
+            intent.getStringExtra(EXTRA_PASSWORD)?.let { password = it }
         }
 
         stopRequested = false
@@ -186,6 +187,7 @@ class ScanService : Service() {
         const val EXTRA_PORTS = "ports"
         const val EXTRA_TCP = "tcp"
         const val EXTRA_UDP = "udp"
+        const val EXTRA_PASSWORD = "password"
 
         private const val CHANNEL_PROGRESS = "progress"
         private const val CHANNEL_RESULTS = "results"

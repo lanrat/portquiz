@@ -14,7 +14,7 @@ To update, install the newer APK over the old one; settings are kept. A debug bu
 
 ## Use
 
-Enter the portquiz server and optionally the ports to test (empty for all ports, or a list like `22,80,1000-2000`), choose TCP, UDP or both, and tap Start. Results are listed as ranges of ports with the same result, with open ports highlighted.
+Enter the portquiz server and optionally the ports to test (empty for all ports, or a list like `22,80,1000-2000`), choose TCP, UDP or both, and tap Start. The password must match the server's `-password`; it defaults to `portquiz`, like the command line client, and clearing the field restores the default. Results are listed as ranges of ports with the same result, with open ports highlighted.
 
 Scans keep running with the screen off or the app in the background: progress is shown in a notification, which also has a Stop button. A full scan of one protocol takes at least about 2 minutes. The settings of the last scan are restored the next time the app opens.
 

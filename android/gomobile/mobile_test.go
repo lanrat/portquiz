@@ -144,3 +144,29 @@ func TestStartErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestPassword(t *testing.T) {
+	open := startTCPServer(t)
+	for _, c := range []struct {
+		password string
+		want     string
+	}{
+		{"portquiz", fmt.Sprintf("tcp %d-%d true", open, open)},
+		{"wrong", fmt.Sprintf("tcp %d-%d false", open, open)},
+	} {
+		cfg := NewConfig()
+		cfg.Host = "127.0.0.1"
+		cfg.Ports = fmt.Sprint(open)
+		cfg.Rate = 0
+		cfg.TimeoutMillis = 300
+		cfg.Password = c.password
+		r := newRecorder()
+		if _, err := Start(cfg, r); err != nil {
+			t.Fatal(err)
+		}
+		<-r.finished
+		if !slices.Equal(r.ranges, []string{c.want}) {
+			t.Errorf("password %q: got %q, want %q", c.password, r.ranges, c.want)
+		}
+	}
+}

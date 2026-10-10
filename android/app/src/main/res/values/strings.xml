@@ -5,6 +5,8 @@
     <string name="github_url" translatable="false">https://github.com/lanrat/portquiz</string>
     <string name="host_hint">Server (IP address or hostname)</string>
     <string name="ports_hint">Ports: empty for all, or e.g. 22,80,1000-2000</string>
+    <string name="password">Password</string>
+    <string name="password_hint">must match the server\'s -password</string>
     <string name="tcp">TCP</string>
     <string name="udp">UDP</string>
     <string name="start">Start</string>
