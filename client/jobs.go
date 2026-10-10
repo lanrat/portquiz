@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,7 +42,8 @@ func versions() []string {
 	return []string{"4", "6"}
 }
 
-// parsePorts returns the ports to test: every port, or the ports listed in -port.
+// parsePorts returns the ports to test, sorted and without duplicates:
+// every port, or the ports listed in -port.
 func parsePorts() ([]int, error) {
 	var ports []int
 	if *port == "" {
@@ -64,7 +66,8 @@ func parsePorts() ([]int, error) {
 		}
 		ports = append(ports, p)
 	}
-	return ports, nil
+	slices.Sort(ports)
+	return slices.Compact(ports), nil
 }
 
 // totalJobs returns the number of jobs that jobSource will create for the given ports.
@@ -175,9 +178,9 @@ func worker(ctx context.Context, jobs, results chan *job) error {
 }
 
 // jobResults processes completed jobs from the results channel and prints the output.
-// It formats and displays the results based on the open/closed flags, and keeps the
-// progress line up to date when it is enabled.
-func jobResults(ctx context.Context, results chan *job, total int) error {
+// It formats and displays the results based on the -format and -open/-closed flags,
+// and keeps the progress line up to date when it is enabled.
+func jobResults(ctx context.Context, results chan *job, ports []int, total int) error {
 	var p *progress
 	var tick <-chan time.Time
 	if progressEnabled() {
@@ -188,39 +191,43 @@ func jobResults(ctx context.Context, results chan *job, total int) error {
 		tick = t.C
 	}
 
+	printed := false
+	w := newResultWriter(ports, func(line string) {
+		if p != nil {
+			p.clear()
+		}
+		printed = true
+		fmt.Println(line)
+	})
+
 	for {
 		select {
 		case <-ctx.Done():
 			if p != nil {
 				p.clear()
 			}
+			// print what is known so far
+			w.flush()
 			return nil
 		case <-tick:
 			p.draw()
 		case j, ok := <-results:
 			if !ok {
 				// channel closed
+				w.flush()
 				if p != nil {
 					p.summary()
 				}
 				return nil
 			}
-			var line string
-			if j.open && *open {
-				line = fmt.Sprintf("OPEN %s %d", j.kind, j.port)
-			} else if !j.open && *closed {
-				line = fmt.Sprintf("CLOSED %s %d", j.kind, j.port)
-			}
 			if p != nil {
 				p.record(j.open)
 			}
-			if line != "" {
+			w.add(j)
+			// redraw once the current batch of results has been printed
+			if printed && len(results) == 0 {
+				printed = false
 				if p != nil {
-					p.clear()
-				}
-				fmt.Println(line)
-				// redraw once the current batch of results has been printed
-				if p != nil && len(results) == 0 {
 					p.draw()
 				}
 			}

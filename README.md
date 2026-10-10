@@ -109,6 +109,8 @@ Usage of ./portquiz:
   -6    force IPv6
   -closed
         print only closed ports
+  -format string
+        output format: "ranges" merges consecutive ports with the same result, "ports" prints one line per port (default "ranges")
   -multi uint
         test multiple times to ensure larger streams work (default 1)
   -no-progress
@@ -134,6 +136,22 @@ Usage of ./portquiz:
   -version
         show version information
 ```
+
+### Output
+
+Results are printed to stdout as ranges of consecutive ports with the same result. Each range is printed as soon as it is final, so results appear while the scan is still running, and stopping a scan with Ctrl-C keeps everything finished so far.
+
+```shell
+$ ./portquiz -tcp -udp portquiz.example.com
+CLOSED tcp 1-21
+OPEN tcp 22
+CLOSED tcp 23-79
+OPEN udp 1-65535
+OPEN tcp 80-81
+CLOSED tcp 82-65535
+```
+
+Ranges for different protocols can be interleaved, as above. Ports listed with `-port` are only merged when they are consecutive, so `-port 22,80,81` prints `22` and `80-81` separately. Use `-open` or `-closed` to print only one kind of result, or `-format ports` to print one line per port instead of ranges.
 
 ### Example Client
 

@@ -32,6 +32,7 @@ var (
 	magicString = flag.String("password", "portquiz", "magicString to use, must be the same on client/server")
 	version     = flag.Bool("version", false, "show version information")
 	noProgress  = flag.Bool("no-progress", false, "disable the progress bar shown when stderr is a terminal")
+	format      = flag.String("format", formatRanges, "output format: \"ranges\" merges consecutive ports with the same result, \"ports\" prints one line per port")
 )
 
 var (
@@ -73,6 +74,10 @@ func main() {
 		*tcp = true
 	}
 
+	if *format != formatRanges && *format != formatPorts {
+		log.Fatalf("-format must be %q or %q", formatRanges, formatPorts)
+	}
+
 	if *parallel < 1 {
 		log.Fatal(errors.New("-parallel must be at least 1"))
 	}
@@ -108,7 +113,7 @@ func main() {
 
 	// start results
 	g.Go(func() error {
-		return jobResults(ctx, results, total)
+		return jobResults(ctx, results, ports, total)
 	})
 
 	err = g.Wait()

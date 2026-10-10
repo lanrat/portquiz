@@ -33,6 +33,9 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Test
+        run: go test -race ./...
+
       - name: Build
         run: make
 
