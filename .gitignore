@@ -2,3 +2,4 @@
 /portquiz
 /portquiz-server
 dist/
+*.jks
