@@ -49,7 +49,7 @@ func isOpenUDP(ctx context.Context, port int, network string) bool {
 		}
 		return false
 	}
-	conn, err := net.DialUDP(network, nil, udpAddr)
+	conn, err := dialUDP(network, udpAddr)
 	if err != nil {
 		if *verbose {
 			log.Printf("UDP dial error for %s:%d: %s", server, port, err)
@@ -126,4 +126,22 @@ func isOpenUDP(ctx context.Context, port int, network string) bool {
 	}
 
 	return false
+}
+
+// dialUDP connects a UDP socket to addr. When testing a server on the same
+// host, the OS can pick a local port equal to the port being tested, which
+// connects the socket to itself so it reads back its own packet and reports a
+// false open. Like Go's TCP dialer, it detects this and tries again.
+func dialUDP(network string, addr *net.UDPAddr) (*net.UDPConn, error) {
+	for range 3 {
+		conn, err := net.DialUDP(network, nil, addr)
+		if err != nil {
+			return nil, err
+		}
+		if conn.LocalAddr().String() != conn.RemoteAddr().String() {
+			return conn, nil
+		}
+		_ = conn.Close()
+	}
+	return nil, fmt.Errorf("UDP socket connected to itself on %s", addr)
 }
