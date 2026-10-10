@@ -6,128 +6,77 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"syscall"
 	"time"
 )
 
-// isOpenTCPMulti tests a TCP port multiple times to ensure reliability.
-// It returns true only if all attempts succeed, false if any attempt fails.
-func isOpenTCPMulti(ctx context.Context, port int, network string) bool {
-	for try := uint(0); try < *multi; try++ {
-		// Check for cancellation before each attempt
-		select {
-		case <-ctx.Done():
-			return false
+// checkTCP tests a single TCP port once: it connects, sends the magic string,
+// and waits for the server to send it back. It returns the outcome and, for an
+// open port, the slower of the connection and the reply, each of which takes
+// about one round trip.
+func checkTCP(ctx context.Context, t *target, port int, timeout time.Duration) (outcome, time.Duration) {
+	addr := net.JoinHostPort(t.addr.String(), strconv.Itoa(port))
+	d := net.Dialer{Timeout: timeout}
+	start := time.Now()
+	c, err := d.DialContext(ctx, t.network, addr)
+	if err != nil {
+		if *verbose {
+			log.Printf("%s %d dial error: %s", t.kind, port, err)
+		}
+		switch {
+		case errors.Is(err, syscall.ECONNREFUSED):
+			return outcomeRefused, 0
+		case os.IsTimeout(err):
+			return outcomeTimeout, 0
 		default:
-		}
-
-		if !isOpenTCP(ctx, port, network) {
-			return false
+			return outcomeFailed, 0
 		}
 	}
-	return true
-}
-
-// isOpenTCP tests if a single TCP port is open on the remote server.
-// It connects to the port, sends the magic string, and checks for a valid response.
-func isOpenTCP(ctx context.Context, port int, network string) bool {
-	// Check for cancellation before starting
-	select {
-	case <-ctx.Done():
-		return false
-	default:
-	}
-
-	// setup
-	tcpAddr, err := net.ResolveTCPAddr(network, net.JoinHostPort(server, fmt.Sprintf("%d", port)))
-	if err != nil {
-		if *verbose {
-			log.Printf("TCP resolve error for %s:%d: %s", server, port, err)
+	connected := time.Now()
+	conn := c.(*net.TCPConn)
+	defer func() {
+		if err := conn.Close(); err != nil && *verbose {
+			log.Printf("%s %d close error: %s", t.kind, port, err)
 		}
-		return false
-	}
-	d := net.Dialer{Timeout: *timeout}
-	connInterface, err := d.DialContext(ctx, network, tcpAddr.String())
-	conn, ok := connInterface.(*net.TCPConn)
-	if !ok && err == nil {
-		// This shouldn't happen with TCP dialing, but handle it gracefully
-		if *verbose {
-			log.Printf("TCP dial returned unexpected connection type")
-		}
-		return false
-	}
-	if errors.Is(err, syscall.ECONNREFUSED) || os.IsTimeout(err) {
-		// port is closed
-		if *verbose {
-			log.Printf("%s CLOSED %d", network, port)
-		}
-		return false
-	}
-	if err != nil {
-		if *verbose {
-			log.Printf("TCP dial error for %s:%d: %s", server, port, err)
-		}
-		return false
-	}
+	}()
 	// unblock any pending read or write as soon as the context is canceled
 	stopAfter := context.AfterFunc(ctx, func() { _ = conn.SetDeadline(time.Now()) })
 	defer stopAfter()
-	defer func() {
-		if err := conn.Close(); err != nil && *verbose {
-			log.Printf("TCP connection close error: %s", err)
-		}
-	}()
 
-	// setup
-	if err := conn.SetDeadline(time.Now().Add(*timeout)); err != nil && *verbose {
-		log.Printf("TCP SetDeadline warning: %s", err)
+	if err := conn.SetDeadline(connected.Add(timeout)); err != nil && *verbose {
+		log.Printf("%s %d SetDeadline warning: %s", t.kind, port, err)
 	}
 	if err := conn.SetNoDelay(true); err != nil && *verbose {
-		log.Printf("TCP SetNoDelay warning: %s", err)
-	}
-	if err := conn.SetWriteBuffer(len(magicStringBytes)); err != nil && *verbose {
-		log.Printf("TCP SetWriteBuffer warning: %s", err)
-	}
-	if err := conn.SetReadBuffer(len(magicStringBytes)); err != nil && *verbose {
-		log.Printf("TCP SetReadBuffer warning: %s", err)
+		log.Printf("%s %d SetNoDelay warning: %s", t.kind, port, err)
 	}
 
-	// send data
-	if err := conn.SetWriteDeadline(time.Now().Add(*timeout)); err != nil && *verbose {
-		log.Printf("TCP SetWriteDeadline warning: %s", err)
-	}
-	_, err = conn.Write(magicStringBytes)
-	if err != nil {
+	if _, err := conn.Write(magicStringBytes); err != nil {
 		if *verbose {
-			log.Printf("%s write error: %s", network, err)
+			log.Printf("%s %d write error: %s", t.kind, port, err)
 		}
-		return false
+		return outcomeFailed, 0
 	}
 
-	// receive data
 	buffer := make([]byte, 128)
 	n, err := conn.Read(buffer)
 	if err != nil {
 		if *verbose {
-			log.Printf("%s read error: %s", network, err)
+			log.Printf("%s %d read error: %s", t.kind, port, err)
 		}
-		return false
+		if os.IsTimeout(err) && ctx.Err() == nil {
+			return outcomeTimeout, 0
+		}
+		return outcomeFailed, 0
 	}
-
-	if bytes.HasPrefix(buffer[:n], magicStringBytes) {
+	if !bytes.HasPrefix(buffer[:n], magicStringBytes) {
 		if *verbose {
-			log.Printf("%s OPEN %d", network, port)
+			log.Printf("%s %d unexpected reply: %q", t.kind, port, buffer[:n])
 		}
-		return true
-	} else {
-		if *verbose {
-			log.Printf("%s, Got data: %s", network, buffer[:n])
-		}
+		return outcomeFailed, 0
 	}
-
-	return false
+	return outcomeOpen, max(connected.Sub(start), time.Since(connected))
 }

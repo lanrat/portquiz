@@ -2,7 +2,7 @@
 
 Test all outbound TCP/UDP ports for connectivity to a remote host.
 
-Testing all ports takes a few minutes when most ports are reachable. Each port blocked by a firewall that silently drops traffic waits out the timeout, so a full scan of a heavily filtered network can take up to about 45 minutes per protocol with the default settings (see [Performance is slow](#troubleshooting)).
+Testing all ports takes about 2 minutes per protocol with the default settings, which start at most 500 connections per second (`-rate`). Ports blocked by a firewall that silently drops traffic each wait out a timeout, which is kept short by adapting it to how quickly the server responds (see [Timeouts](#timeouts) and [Performance is slow](#troubleshooting)).
 
 Can also be used to detect passive DPI Firewalls that block traffic not looking like the expected service for a given port.
 
@@ -107,6 +107,8 @@ $ ./portquiz -h
 Usage of ./portquiz:
   -4    force IPv4
   -6    force IPv6
+  -adaptive
+        shorten the timeout to fit the measured response time of open ports, up to -timeout (default true)
   -closed
         print only closed ports
   -format string
@@ -118,17 +120,19 @@ Usage of ./portquiz:
   -open
         print only open ports
   -parallel uint
-        number of ports to test at once (default 100)
+        maximum number of ports to test at once (default 500)
   -password string
         magicString to use, must be the same on client/server (default "portquiz")
   -port string
         comma separated list of ports and ranges to test, e.g. 22,80,1000-2000 (default all ports)
-  -retry uint
-        number of times to retry a port that did not respond (default 1)
+  -rate uint
+        maximum number of connections to start per second, 0 for no limit (default 500)
+  -retry times
+        number of times to retry a port that did not respond (default 1, or 0 for TCP with -adaptive=false)
   -tcp
         test TCP ports (default if neither -tcp nor -udp is set)
   -timeout duration
-        amount of time for each connection (default 2s)
+        maximum time to wait for each response (default 2s)
   -udp
         test UDP ports
   -verbose
@@ -152,6 +156,14 @@ CLOSED tcp 82-65535
 ```
 
 Ranges for different protocols can be interleaved, as above. Ports listed with `-port` are only merged when they are consecutive, so `-port 22,80-81` prints `22` and `80-81` separately. Use `-open` or `-closed` to print only one kind of result, or `-format ports` to print one line per port instead of ranges.
+
+### Timeouts
+
+A port that gets no response is reported closed once its timeout expires, so on networks that silently drop traffic the timeout decides how long a scan takes. By default the client measures how quickly open ports respond and waits a safe multiple of that, at least 250ms and at most `-timeout` (2s). Until the first open port responds, the full `-timeout` is used.
+
+As a safety check, one in every 20 ports that time out is tested again with the full `-timeout`. If such a port turns out to be open, the adaptive timeout is raised for the rest of the scan and a warning is printed at the end, since ports tested earlier may have been reported closed too early. Use `-adaptive=false` to always wait the full `-timeout`.
+
+Ports that time out are retried once by default, since packets can be lost. The exception is TCP with `-adaptive=false`: the operating system resends a lost connection request after about a second, which the full 2s timeout already covers, so those ports are not retried. Refused ports are never retried. Use `-retry` to change this.
 
 ### Example Client
 
@@ -183,13 +195,15 @@ Ranges for different protocols can be interleaved, as above. Ports listed with `
 
 **Performance is slow:**
 
-Ports that are blocked by a firewall which silently drops traffic are the slow ones: each takes `-timeout` × (`-retry` + 1) to be reported as closed (4 seconds with the defaults).
+A scan is limited by `-rate`, the number of connections started per second (500 by default, about 2 minutes for all ports of one protocol), and by ports that are blocked by a firewall which silently drops traffic, since each of those waits out a timeout (see [Timeouts](#timeouts)).
 
 - Test specific ports instead of all ports with `-port`
+- Raise `-rate`, or use `-rate 0` for no limit. Every connection takes an entry in the connection tracking table of each NAT router or firewall along the way, often for a minute or two, and a full table can disrupt other traffic through it, so only raise it on networks that can handle it
+- Raise `-parallel` if a scan of a filtered network is limited by waiting rather than by `-rate`
 - Lower `-timeout` and `-retry` on fast, reliable networks
-- Raise `-parallel` to test more ports at once; very high values can cause UDP replies to be dropped or trip firewall rate limits
 
 **Results are inconsistent between runs (especially UDP):**
 
 - Increase `-retry`, since UDP packets can be lost
-- Reduce `-parallel`
+- Lower `-rate`
+- Use `-adaptive=false` if a warning says the adaptive timeout missed ports

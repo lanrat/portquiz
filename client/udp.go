@@ -9,123 +9,49 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"syscall"
 	"time"
 )
 
-// isOpenUDPMulti tests a UDP port multiple times to ensure reliability.
-// It returns true only if all attempts succeed, false if any attempt fails.
-func isOpenUDPMulti(ctx context.Context, port int, network string) bool {
-	for try := uint(0); try < *multi; try++ {
-		// Check for cancellation before each attempt
-		select {
-		case <-ctx.Done():
-			return false
-		default:
-		}
-
-		if !isOpenUDP(ctx, port, network) {
-			return false
-		}
-	}
-	return true
-}
-
-// isOpenUDP tests if a single UDP port is open on the remote server.
-// It sends the magic string via UDP and checks for a valid response.
-func isOpenUDP(ctx context.Context, port int, network string) bool {
-	// Check for cancellation before starting
-	select {
-	case <-ctx.Done():
-		return false
-	default:
-	}
-
-	// setup
-	udpAddr, err := net.ResolveUDPAddr(network, net.JoinHostPort(server, fmt.Sprintf("%d", port)))
+// checkUDP tests a single UDP port once: it sends the magic string and waits
+// for the server to send it back. Each check uses its own connected socket so
+// that an ICMP port unreachable from a rejecting firewall is reported at once
+// as refused; an unconnected socket shared by all checks never sees those, so
+// every rejected port would wait out the full timeout instead.
+func checkUDP(ctx context.Context, network string, addr *net.IPAddr, port int, timeout time.Duration) (outcome, time.Duration) {
+	conn, err := dialUDP(network, &net.UDPAddr{IP: addr.IP, Port: port, Zone: addr.Zone})
 	if err != nil {
 		if *verbose {
-			log.Printf("UDP resolve error for %s:%d: %s", server, port, err)
+			log.Printf("%s %d dial error: %s", network, port, err)
 		}
-		return false
+		return outcomeFailed, 0
 	}
-	conn, err := dialUDP(network, udpAddr)
-	if err != nil {
-		if *verbose {
-			log.Printf("UDP dial error for %s:%d: %s", server, port, err)
-		}
-		return false
-	}
-	// unblock any pending read or write as soon as the context is canceled
+	defer func() { _ = conn.Close() }()
+	// unblock a pending read as soon as the context is canceled
 	stopAfter := context.AfterFunc(ctx, func() { _ = conn.SetDeadline(time.Now()) })
 	defer stopAfter()
-	defer func() {
-		if err := conn.Close(); err != nil && *verbose {
-			log.Printf("UDP connection close error: %s", err)
-		}
-	}()
 
-	// tuning
-	if err := conn.SetDeadline(time.Now().Add(*timeout)); err != nil && *verbose {
-		log.Printf("UDP SetDeadline warning: %s", err)
+	start := time.Now()
+	if err := conn.SetDeadline(start.Add(timeout)); err != nil && *verbose {
+		log.Printf("%s %d SetDeadline warning: %s", network, port, err)
 	}
-	if err := conn.SetReadBuffer(len(magicStringBytes) * 2); err != nil && *verbose {
-		log.Printf("UDP SetReadBuffer warning: %s", err)
+	if _, err := conn.Write(magicStringBytes); err != nil {
+		return outcomeFailed, 0
 	}
-
-	// Check for cancellation before send
-	select {
-	case <-ctx.Done():
-		return false
-	default:
-	}
-
-	// send data
-	_, err = conn.Write(magicStringBytes)
-	if err != nil {
-		if *verbose {
-			log.Printf("%s write error: %s", network, err)
-		}
-		return false
-	}
-
-	// Check for cancellation before receive
-	select {
-	case <-ctx.Done():
-		return false
-	default:
-	}
-
-	// receive data
-	buffer := make([]byte, 128)
+	buffer := make([]byte, 2048)
 	n, err := conn.Read(buffer)
-	if errors.Is(err, syscall.ECONNREFUSED) {
-		// port is closed
-		if *verbose {
-			log.Printf("%s CLOSED %d", network, port)
-		}
-		return false
+	switch {
+	case errors.Is(err, syscall.ECONNREFUSED):
+		return outcomeRefused, 0
+	case err != nil && ctx.Err() == nil && errors.Is(err, os.ErrDeadlineExceeded):
+		return outcomeTimeout, 0
+	case err != nil:
+		return outcomeFailed, 0
+	case !bytes.HasPrefix(buffer[:n], magicStringBytes):
+		return outcomeFailed, 0
 	}
-	if err != nil {
-		if *verbose {
-			log.Printf("%s read error: %s", network, err)
-		}
-		return false
-	}
-
-	// check status
-	if bytes.HasPrefix(buffer[:n], magicStringBytes) {
-		if *verbose {
-			log.Printf("%s OPEN %d", network, port)
-		}
-		return true
-	} else {
-		if *verbose {
-			log.Printf("%s, Got data: %d %s", network, port, buffer[:n])
-		}
-	}
-
-	return false
+	return outcomeOpen, time.Since(start)
 }
 
 // dialUDP connects a UDP socket to addr. When testing a server on the same

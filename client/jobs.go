@@ -14,7 +14,6 @@ import (
 
 // job represents a single port testing task.
 type job struct {
-	try  uint   // Number of attempts made so far
 	kind string // Protocol and IP version (e.g., "tcp4", "udp6")
 	port int    // Port number to test
 	open bool   // Whether the port was found to be open
@@ -112,7 +111,6 @@ func jobSource(ctx context.Context, ports []int, jobs, results chan *job) error 
 		for _, v := range ver {
 			if *tcp {
 				jTCP := &job{
-					try:  0,
 					kind: "tcp" + v,
 					port: p,
 				}
@@ -125,7 +123,6 @@ func jobSource(ctx context.Context, ports []int, jobs, results chan *job) error 
 			}
 			if *udp {
 				jUDP := &job{
-					try:  0,
 					kind: "udp" + v,
 					port: p,
 				}
@@ -155,9 +152,8 @@ func jobSource(ctx context.Context, ports []int, jobs, results chan *job) error 
 }
 
 // worker processes jobs from the jobs channel and sends results to the results channel.
-// It performs the actual port connectivity tests and retries failed attempts.
-func worker(ctx context.Context, jobs, results chan *job) error {
-	//var a sync.WaitGroup
+// It tests each port with the target for the job's kind.
+func worker(ctx context.Context, targets map[string]*target, jobs, results chan *job) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -167,30 +163,11 @@ func worker(ctx context.Context, jobs, results chan *job) error {
 				// done
 				return nil
 			}
-
-			try := func() error {
-				switch {
-				case strings.HasPrefix(j.kind, "tcp"):
-					if isOpenTCPMulti(ctx, j.port, j.kind) {
-						j.open = true
-					}
-				case strings.HasPrefix(j.kind, "udp"):
-					if isOpenUDPMulti(ctx, j.port, j.kind) {
-						j.open = true
-					}
-				default:
-					return fmt.Errorf("unknown kind: %s", j.kind)
-				}
-				return nil
+			t, ok := targets[j.kind]
+			if !ok {
+				return fmt.Errorf("unknown kind: %s", j.kind)
 			}
-
-			// the first attempt plus up to -retry retries
-			for ; j.try <= *retry && !j.open; j.try++ {
-				err := try()
-				if err != nil {
-					return err
-				}
-			}
+			j.open = t.test(ctx, j.port)
 
 			select {
 			case <-ctx.Done():
