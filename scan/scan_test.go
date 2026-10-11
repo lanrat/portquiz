@@ -169,3 +169,67 @@ func TestStartValidates(t *testing.T) {
 		}
 	}
 }
+
+func TestStartHosts(t *testing.T) {
+	for host, want := range map[string]string{
+		"127.0.0.1":        "127.0.0.1",
+		" 127.0.0.1\n":     "127.0.0.1",
+		"::ffff:127.0.0.1": "127.0.0.1",
+		"localhost":        "",
+		"::1":              "::1",
+		"[::1]":            "::1",
+	} {
+		opts := testOptions(80)
+		opts.Host = host
+		ctx, cancel := context.WithCancel(context.Background())
+		s, err := Start(ctx, opts)
+		cancel()
+		if err != nil {
+			t.Errorf("%q: %v", host, err)
+			continue
+		}
+		_ = s.Wait()
+		addrs := s.Addrs()
+		if len(addrs) != 1 || (want != "" && addrs[0].String() != want) {
+			t.Errorf("%q: addresses %v, want [%s]", host, addrs, want)
+		}
+	}
+}
+
+func TestStartAddrsForBothVersions(t *testing.T) {
+	opts := testOptions(80)
+	opts.Host = "localhost"
+	opts.IPv4, opts.IPv6 = true, true
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s, err := Start(ctx, opts)
+	if err != nil {
+		t.Skipf("localhost has no IPv6 address here: %v", err)
+	}
+	cancel()
+	_ = s.Wait()
+	addrs := s.Addrs()
+	if len(addrs) != 2 || addrs[0].IP.To4() == nil || addrs[1].IP.To4() != nil {
+		t.Errorf("addresses %v, want IPv4 then IPv6", addrs)
+	}
+}
+
+func TestStartWrongVersionAddress(t *testing.T) {
+	for _, c := range []struct {
+		host       string
+		ipv4, ipv6 bool
+		want       string
+	}{
+		{"127.0.0.1", false, true, "127.0.0.1 is an IPv4 address and cannot be tested over IPv6"},
+		{"::1", true, false, "::1 is an IPv6 address and cannot be tested over IPv4"},
+		{"[::1]", true, true, "::1 is an IPv6 address and cannot be tested over IPv4"},
+	} {
+		opts := testOptions(80)
+		opts.Host = c.host
+		opts.IPv4, opts.IPv6 = c.ipv4, c.ipv6
+		_, err := Start(context.Background(), opts)
+		if err == nil || err.Error() != c.want {
+			t.Errorf("%q: got error %v, want %q", c.host, err, c.want)
+		}
+	}
+}

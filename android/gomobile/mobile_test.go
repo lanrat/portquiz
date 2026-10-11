@@ -84,10 +84,14 @@ func TestScan(t *testing.T) {
 	c.Ports = fmt.Sprintf("%d-%d", open, open+2)
 	c.Rate = 0
 	r := newRecorder()
-	if _, err := Start(c, r); err != nil {
+	m, err := Start(c, r)
+	if err != nil {
 		t.Fatal(err)
 	}
 	<-r.finished
+	if got := m.Addresses(); got != "127.0.0.1" {
+		t.Errorf("addresses: got %q, want 127.0.0.1", got)
+	}
 
 	want := []string{fmt.Sprintf("tcp %d-%d true", open, open), fmt.Sprintf("tcp %d-%d false", open+1, open+2)}
 	if !slices.Equal(r.ranges, want) {

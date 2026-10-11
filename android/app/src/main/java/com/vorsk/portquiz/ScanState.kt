@@ -14,6 +14,9 @@ object ScanState {
 
     var host = ""
         private set
+    /** The server addresses being tested, once the host is resolved. */
+    var addresses = ""
+        private set
     var running = false
         private set
     var done = 0L
@@ -57,6 +60,7 @@ object ScanState {
     fun begin(host: String) {
         generation++
         this.host = host
+        addresses = ""
         running = true
         done = 0
         total = 0
@@ -70,6 +74,16 @@ object ScanState {
         lines.clear()
         changed()
     }
+
+    fun resolved(addresses: String) {
+        this.addresses = addresses
+        changed()
+    }
+
+    /** The host, with the addresses tested when they are not the host itself. */
+    fun server(): String =
+        if (addresses.isEmpty() || addresses == host.removeSurrounding("[", "]")) host
+        else "$host ($addresses)"
 
     fun addRange(kind: String, first: Long, last: Long, open: Boolean) {
         val ports = if (first == last) "$first" else "$first-$last"

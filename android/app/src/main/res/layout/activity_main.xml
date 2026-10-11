@@ -287,11 +287,13 @@
             android:layout_weight="1"
             android:textAppearance="?android:attr/textAppearanceSmall" />
 
-        <!-- tabular digits keep the text from shifting as it counts down -->
+        <!-- on the progress line, the last of the status; tabular digits keep
+             the text from shifting as it counts down -->
         <TextView
             android:id="@+id/eta"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
             android:layout_marginStart="8dp"
             android:fontFeatureSettings="tnum"
             android:gravity="end"

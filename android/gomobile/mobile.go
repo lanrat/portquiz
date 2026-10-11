@@ -5,6 +5,7 @@ package mobile
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"portquiz/scan"
@@ -105,6 +106,7 @@ func (c *Config) options() (scan.Options, error) {
 type Scan struct {
 	cancel context.CancelFunc
 	done   chan struct{}
+	addrs  string
 }
 
 // Start checks the config, resolves the host and starts the scan in the
@@ -122,9 +124,20 @@ func Start(c *Config, l Listener) (*Scan, error) {
 		cancel()
 		return nil, err
 	}
-	m := &Scan{cancel: cancel, done: make(chan struct{})}
+	addrs := make([]string, len(s.Addrs()))
+	for i, a := range s.Addrs() {
+		addrs[i] = a.String()
+	}
+	m := &Scan{cancel: cancel, done: make(chan struct{}), addrs: strings.Join(addrs, ", ")}
 	go m.report(ctx, s, l)
 	return m, nil
+}
+
+// Addresses returns the server addresses being tested, separated by ", ":
+// one, or with both IPv4 and IPv6 set, the IPv4 address and then the IPv6
+// address.
+func (m *Scan) Addresses() string {
+	return m.addrs
 }
 
 // Cancel stops the scan. The listener still receives the ranges known so far

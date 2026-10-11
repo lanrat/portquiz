@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"slices"
 	"sync"
 	"time"
@@ -24,8 +25,9 @@ const MaxPort = 65535
 
 // Options configures a scan. Start from DefaultOptions and set Host.
 type Options struct {
-	// Host is the portquiz server's IP address or hostname. It is resolved
-	// once, when the scan starts.
+	// Host is the portquiz server's hostname or IP address, such as
+	// 192.0.2.1, 2001:db8::1 or [2001:db8::1]. It is resolved once, when the
+	// scan starts.
 	Host string
 
 	// Ports lists the ports to test, nil for every port. ParsePorts builds
@@ -98,6 +100,7 @@ type Scan struct {
 	ports   []int
 	kinds   []string
 	targets map[string]*target
+	addrs   []*net.IPAddr
 	results chan Result
 	done    chan struct{}
 	err     error
@@ -106,6 +109,7 @@ type Scan struct {
 // Start resolves the server and starts testing in the background. Results
 // are delivered on Results until every port is tested or ctx is canceled.
 func Start(ctx context.Context, opts Options) (*Scan, error) {
+	opts.Host = cleanHost(opts.Host)
 	if opts.Host == "" {
 		return nil, errors.New("no host to test")
 	}
@@ -147,7 +151,7 @@ func Start(ctx context.Context, opts Options) (*Scan, error) {
 	// a small burst smooths over scheduling delays without overshooting the rate
 	limiter := rate.NewLimiter(limit, max(1, opts.Rate/50))
 
-	targets, err := newTargets(&opts, limiter)
+	targets, addrs, err := newTargets(&opts, limiter)
 	if err != nil {
 		return nil, err
 	}
@@ -156,6 +160,7 @@ func Start(ctx context.Context, opts Options) (*Scan, error) {
 		opts:    opts,
 		ports:   ports,
 		targets: targets,
+		addrs:   addrs,
 		results: make(chan Result, 100),
 		done:    make(chan struct{}),
 	}
@@ -180,6 +185,12 @@ func (s *Scan) Results() <-chan Result {
 // Ports returns the sorted ports being tested.
 func (s *Scan) Ports() []int {
 	return s.ports
+}
+
+// Addrs returns the server addresses being tested: one, or with both IPv4
+// and IPv6 set, the IPv4 address and then the IPv6 address.
+func (s *Scan) Addrs() []*net.IPAddr {
+	return s.addrs
 }
 
 // Kinds returns the kinds being tested, e.g. ["tcp", "udp"].

@@ -69,12 +69,28 @@ class ScanStateTest {
     }
 
     @Test
+    fun namesTheServerWithItsAddresses() {
+        ScanState.begin("example.com")
+        assertEquals("example.com", ScanState.server())
+        ScanState.resolved("192.0.2.1")
+        assertEquals("example.com (192.0.2.1)", ScanState.server())
+        ScanState.resolved("192.0.2.1, 2001:db8::1")
+        assertEquals("example.com (192.0.2.1, 2001:db8::1)", ScanState.server())
+        ScanState.begin("[2001:db8::1]")
+        ScanState.resolved("2001:db8::1")
+        assertEquals("[2001:db8::1]", ScanState.server())
+        ScanState.finish(canceled = false, missed = 0, error = null)
+    }
+
+    @Test
     fun beginClearsThePreviousScan() {
         ScanState.begin("a")
         ScanState.addRange("udp", 53, 53, true)
         ScanState.finish(canceled = false, missed = 0, error = "boom")
+        ScanState.resolved("192.0.2.1")
         ScanState.begin("b")
         assertEquals("b", ScanState.host)
+        assertEquals("", ScanState.addresses)
         assertTrue(ScanState.lines.isEmpty())
         assertNull(ScanState.error)
     }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
+	"strings"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -32,15 +34,18 @@ type target struct {
 }
 
 // newTargets resolves the server once per IP version and returns a target for
-// every kind that will be tested, keyed by kind.
-func newTargets(opts *Options, limiter *rate.Limiter) (map[string]*target, error) {
+// every kind that will be tested, keyed by kind, and the addresses tested in
+// the order of versions.
+func newTargets(opts *Options, limiter *rate.Limiter) (map[string]*target, []*net.IPAddr, error) {
 	targets := make(map[string]*target)
+	var addrs []*net.IPAddr
 	magic := []byte(opts.Password)
 	for _, v := range versions(opts) {
-		addr, err := net.ResolveIPAddr("ip"+v, opts.Host)
+		addr, err := resolve(opts.Host, v)
 		if err != nil {
-			return nil, fmt.Errorf("resolving %s: %w", opts.Host, err)
+			return nil, nil, err
 		}
+		addrs = append(addrs, addr)
 		ipVersion := "6"
 		if addr.IP.To4() != nil {
 			ipVersion = "4"
@@ -65,7 +70,40 @@ func newTargets(opts *Options, limiter *rate.Limiter) (map[string]*target, error
 			add("udp")
 		}
 	}
-	return targets, nil
+	return targets, addrs, nil
+}
+
+// resolve returns the address of host for IP version v ("4", "6", or "" for
+// either). host is a name or an IP address, which may be in brackets like
+// [2001:db8::1].
+func resolve(host, v string) (*net.IPAddr, error) {
+	// an address with the wrong version for v cannot be resolved; say why
+	if ip, err := netip.ParseAddr(host); err == nil {
+		ip = ip.Unmap()
+		if v == "4" && !ip.Is4() {
+			return nil, fmt.Errorf("%s is an IPv6 address and cannot be tested over IPv4", host)
+		}
+		if v == "6" && ip.Is4() {
+			return nil, fmt.Errorf("%s is an IPv4 address and cannot be tested over IPv6", host)
+		}
+	}
+	addr, err := net.ResolveIPAddr("ip"+v, host)
+	if err != nil {
+		return nil, fmt.Errorf("resolving %s: %w", host, err)
+	}
+	return addr, nil
+}
+
+// cleanHost removes surrounding space and the brackets around an IPv6
+// address, as in a URL, from a host given by the user.
+func cleanHost(host string) string {
+	host = strings.TrimSpace(host)
+	if inner, ok := strings.CutPrefix(host, "["); ok {
+		if inner, ok := strings.CutSuffix(inner, "]"); ok {
+			host = inner
+		}
+	}
+	return host
 }
 
 // retries returns how many times a port of this kind is retried after the

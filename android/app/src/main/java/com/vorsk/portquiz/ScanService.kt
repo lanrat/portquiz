@@ -85,6 +85,7 @@ class ScanService : Service() {
                 val s = Mobile.start(config, listener)
                 main.post {
                     scan = s
+                    ScanState.resolved(s.addresses())
                     if (stopRequested) s.cancel()
                 }
             } catch (e: Exception) {
@@ -153,7 +154,7 @@ class ScanService : Service() {
         )
         val builder = Notification.Builder(this, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_port)
-            .setContentTitle(getString(R.string.notification_title, ScanState.host))
+            .setContentTitle(getString(R.string.notification_title, ScanState.server()))
             .setContentText(listOfNotNull(statusText(this), etaText(this)).joinToString(" · "))
             .setProgress(ScanState.total.toInt(), ScanState.done.toInt(), ScanState.total == 0L)
             .setOngoing(true)
@@ -169,7 +170,7 @@ class ScanService : Service() {
     private fun resultNotification(): Notification =
         Notification.Builder(this, CHANNEL_RESULTS)
             .setSmallIcon(R.drawable.ic_port)
-            .setContentTitle(getString(R.string.notification_done_title, ScanState.host))
+            .setContentTitle(getString(R.string.notification_done_title, ScanState.server()))
             .setContentText(statusText(this))
             .setContentIntent(openAppIntent())
             .setAutoCancel(true)

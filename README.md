@@ -180,9 +180,11 @@ The portquiz client connects to the portquiz server and tests port connectivity.
 
 **Note:** The client binary is named `portquiz` (cross-platform), while the server binary is `portquiz-server` (Linux only).
 
+The server can be given as a hostname or an IP address, such as `portquiz 192.0.2.1` or `portquiz 2001:db8::1` (brackets, as in `[2001:db8::1]`, are also accepted).
+
 IPv4 can be forced with `-4` and IPv6 can be forced with `-6`. If both are provided (`-4 -6`) then each port is tested using both IPv4 and IPv6. If unspecified, only one protocol version is tested.
 
-When run in a terminal, a progress bar with an estimated time remaining is shown on stderr (based on the speed over roughly the last 10 seconds, smoothed so it counts down steadily), followed by a summary when testing finishes. It is hidden automatically when stderr is not a terminal (for example when piped or redirected) and in `-verbose` mode, and can be turned off with `-no-progress`. Results are always printed to stdout, so `./portquiz -tcp example.com > results.txt` still shows the progress bar while saving only the results.
+When run in a terminal, the address being tested is shown first (`Testing example.com at 192.0.2.1`), then a progress bar with an estimated time remaining is shown on stderr (based on the speed over roughly the last 10 seconds, smoothed so it counts down steadily), followed by a summary when testing finishes. It is hidden automatically when stderr is not a terminal (for example when piped or redirected) and in `-verbose` mode, and can be turned off with `-no-progress`. Results are always printed to stdout, so `./portquiz -tcp example.com > results.txt` still shows the progress bar while saving only the results.
 
 ```shell
 $ ./portquiz -h

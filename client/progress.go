@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -146,6 +147,21 @@ func formatETA(d time.Duration) string {
 	default:
 		return fmt.Sprintf("%ds", s)
 	}
+}
+
+// testingLine describes the server addresses being tested, naming host
+// unless it is already the only address: "Testing example.com at
+// 192.0.2.1" or "Testing example.com at 192.0.2.1 and 2001:db8::1".
+func testingLine(host string, addrs []*net.IPAddr) string {
+	ips := make([]string, len(addrs))
+	for i, a := range addrs {
+		ips[i] = a.String()
+	}
+	list := strings.Join(ips, " and ")
+	if len(ips) == 1 && strings.Trim(strings.TrimSpace(host), "[]") == list {
+		return "Testing " + list
+	}
+	return "Testing " + strings.TrimSpace(host) + " at " + list
 }
 
 // terminalWidth returns the width of the terminal on stderr, or 80 if unknown.

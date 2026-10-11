@@ -155,6 +155,7 @@ func printResults(ctx context.Context, s *scan.Scan) {
 	var p *progress
 	var tick <-chan time.Time
 	if progressEnabled() {
+		fmt.Fprintln(os.Stderr, testingLine(flag.Arg(0), s.Addrs()))
 		p = newProgress(s.Total())
 		p.draw()
 		t := time.NewTicker(progressInterval)

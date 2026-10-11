@@ -265,6 +265,9 @@ class MainActivity : Activity() {
         progress.progress = ScanState.done.toInt()
 
         var text = ScanService.statusText(this)
+        if (ScanState.addresses.isNotEmpty()) {
+            text = getString(R.string.status_server, ScanState.server()) + "\n" + text
+        }
         if (!running && ScanState.missed > 0) {
             text += "\n" + getString(R.string.status_missed, ScanState.missed)
         }
