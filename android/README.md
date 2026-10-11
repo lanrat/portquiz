@@ -18,7 +18,7 @@ Enter the portquiz server (a hostname or an IP address) and optionally the ports
 
 Scans keep running with the screen off or the app in the background: progress is shown in a notification, which also has a Stop button. A full scan of one protocol takes at least about 2 minutes. The settings of the last scan are restored the next time the app opens.
 
-The IP version setting chooses between testing whichever address the server's name resolves to (Auto), IPv4, IPv6, or every port over both. Below the results, All, Open and Closed choose which ranges are shown; this only filters the list, so it can be changed after a scan.
+The IP version setting chooses between Auto, IPv4, IPv6 and Both. Auto tests every port over both IPv4 and IPv6 when the server's name has an address of each and the phone's network supports both, and otherwise the one version available; Both requires both. Below the results, All, Open and Closed choose which ranges are shown; this only filters the list, so it can be changed after a scan.
 
 Advanced settings, under Advanced, match the command line client's options and defaults: the timeout in milliseconds and whether it adapts to how quickly open ports respond (`-timeout`, `-adaptive`), connections started per second with 0 for no limit (`-rate`), retries for ports that do not respond, blank for the default (`-retry`), and how many ports are tested at once (`-parallel`). Reset to defaults restores them, and a blank field uses its default.
 

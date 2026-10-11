@@ -175,7 +175,6 @@ func TestStartHosts(t *testing.T) {
 		"127.0.0.1":        "127.0.0.1",
 		" 127.0.0.1\n":     "127.0.0.1",
 		"::ffff:127.0.0.1": "127.0.0.1",
-		"localhost":        "",
 		"::1":              "::1",
 		"[::1]":            "::1",
 	} {
@@ -231,5 +230,80 @@ func TestStartWrongVersionAddress(t *testing.T) {
 		if err == nil || err.Error() != c.want {
 			t.Errorf("%q: got error %v, want %q", c.host, err, c.want)
 		}
+	}
+}
+
+// fakeDNS makes every name resolve to addrs, with a route only to the
+// addresses in reachable, until the test ends.
+func fakeDNS(t *testing.T, addrs []string, reachable ...string) {
+	t.Helper()
+	lookup, route := lookupIPAddr, routable
+	t.Cleanup(func() { lookupIPAddr, routable = lookup, route })
+	lookupIPAddr = func(context.Context, string) ([]net.IPAddr, error) {
+		var out []net.IPAddr
+		for _, a := range addrs {
+			out = append(out, net.IPAddr{IP: net.ParseIP(a)})
+		}
+		return out, nil
+	}
+	routable = func(a *net.IPAddr) bool { return slices.Contains(reachable, a.String()) }
+}
+
+func TestStartAutoVersions(t *testing.T) {
+	for _, c := range []struct {
+		name      string
+		addrs     []string
+		reachable []string
+		kinds     []string
+		tested    []string
+	}{
+		{"dual stack", []string{"::1", "127.0.0.2", "127.0.0.1"}, []string{"::1", "127.0.0.2"},
+			[]string{"tcp4", "udp4", "tcp6", "udp6"}, []string{"127.0.0.2", "::1"}},
+		{"no IPv6 route", []string{"::1", "127.0.0.1"}, []string{"127.0.0.1"},
+			[]string{"tcp", "udp"}, []string{"127.0.0.1"}},
+		{"no IPv4 route", []string{"::1", "127.0.0.1"}, []string{"::1"},
+			[]string{"tcp", "udp"}, []string{"::1"}},
+		{"no route", []string{"::1", "127.0.0.1"}, nil,
+			[]string{"tcp", "udp"}, []string{"127.0.0.1"}},
+		{"IPv6 only", []string{"::1"}, []string{"::1"},
+			[]string{"tcp", "udp"}, []string{"::1"}},
+		{"mapped IPv4", []string{"::ffff:127.0.0.1"}, []string{"127.0.0.1"},
+			[]string{"tcp", "udp"}, []string{"127.0.0.1"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			fakeDNS(t, c.addrs, c.reachable...)
+			opts := testOptions(80)
+			opts.Host = "dual.example"
+			opts.TCP, opts.UDP = true, true
+			ctx, cancel := context.WithCancel(context.Background())
+			s, err := Start(ctx, opts)
+			cancel()
+			if err != nil {
+				t.Fatal(err)
+			}
+			_ = s.Wait()
+			var tested []string
+			for _, a := range s.Addrs() {
+				tested = append(tested, a.String())
+			}
+			if !slices.Equal(s.Kinds(), c.kinds) || !slices.Equal(tested, c.tested) {
+				t.Errorf("kinds %v at %v, want %v at %v", s.Kinds(), tested, c.kinds, c.tested)
+			}
+		})
+	}
+}
+
+func TestStartAutoNoAddresses(t *testing.T) {
+	fakeDNS(t, nil)
+	opts := testOptions(80)
+	opts.Host = "empty.example"
+	if _, err := Start(context.Background(), opts); err == nil {
+		t.Error("expected an error")
+	}
+}
+
+func TestRoutable(t *testing.T) {
+	if !routable(&net.IPAddr{IP: net.ParseIP("127.0.0.1")}) {
+		t.Error("no route to 127.0.0.1")
 	}
 }

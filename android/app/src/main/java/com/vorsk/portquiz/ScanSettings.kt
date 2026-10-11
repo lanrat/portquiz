@@ -2,11 +2,11 @@ package com.vorsk.portquiz
 
 /** Which IP versions to test, like the client's -4 and -6 flags. */
 enum class IpVersion(val ipv4: Boolean, val ipv6: Boolean) {
-    /** Whichever version the server's name resolves to first. */
+    /** Both versions when the server and network support both, else the one available. */
     AUTO(false, false),
     IPV4(true, false),
     IPV6(false, true),
-    /** Every port over both versions. */
+    /** Every port over both versions, failing if either is unavailable. */
     BOTH(true, true),
 }
 

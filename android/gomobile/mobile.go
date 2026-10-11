@@ -134,7 +134,7 @@ func Start(c *Config, l Listener) (*Scan, error) {
 }
 
 // Addresses returns the server addresses being tested, separated by ", ":
-// one, or with both IPv4 and IPv6 set, the IPv4 address and then the IPv6
+// one, or when testing both IP versions, the IPv4 address and then the IPv6
 // address.
 func (m *Scan) Addresses() string {
 	return m.addrs

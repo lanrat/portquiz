@@ -39,8 +39,9 @@ type Options struct {
 	TCP, UDP bool
 
 	// IPv4 and IPv6 force testing over that IP version; when both are set
-	// every port is tested over both. When neither is set the resolver
-	// picks one.
+	// every port is tested over both. When neither is set, every port is
+	// tested over both versions if the server has an address of each and
+	// this machine has a route to both, and otherwise over the one it can.
 	IPv4, IPv6 bool
 
 	// Timeout is the longest to wait for each response.
@@ -151,7 +152,7 @@ func Start(ctx context.Context, opts Options) (*Scan, error) {
 	// a small burst smooths over scheduling delays without overshooting the rate
 	limiter := rate.NewLimiter(limit, max(1, opts.Rate/50))
 
-	targets, addrs, err := newTargets(&opts, limiter)
+	targets, kinds, addrs, err := newTargets(ctx, &opts, limiter)
 	if err != nil {
 		return nil, err
 	}
@@ -160,17 +161,10 @@ func Start(ctx context.Context, opts Options) (*Scan, error) {
 		opts:    opts,
 		ports:   ports,
 		targets: targets,
+		kinds:   kinds,
 		addrs:   addrs,
 		results: make(chan Result, 100),
 		done:    make(chan struct{}),
-	}
-	for _, v := range versions(&opts) {
-		if opts.TCP {
-			s.kinds = append(s.kinds, "tcp"+v)
-		}
-		if opts.UDP {
-			s.kinds = append(s.kinds, "udp"+v)
-		}
 	}
 	go s.run(ctx)
 	return s, nil
@@ -187,8 +181,8 @@ func (s *Scan) Ports() []int {
 	return s.ports
 }
 
-// Addrs returns the server addresses being tested: one, or with both IPv4
-// and IPv6 set, the IPv4 address and then the IPv6 address.
+// Addrs returns the server addresses being tested: one, or when testing
+// both IP versions, the IPv4 address and then the IPv6 address.
 func (s *Scan) Addrs() []*net.IPAddr {
 	return s.addrs
 }
@@ -276,23 +270,6 @@ func (s *Scan) run(ctx context.Context) {
 		})
 	}
 	_ = g.Wait()
-}
-
-// versions returns the IP version suffixes to test:
-//   - [""] when neither IPv4 nor IPv6 is forced (whichever the resolver picks)
-//   - ["4"] or ["6"] when one is forced
-//   - ["4", "6"] when both are
-func versions(opts *Options) []string {
-	switch {
-	case opts.IPv4 && opts.IPv6:
-		return []string{"4", "6"}
-	case opts.IPv4:
-		return []string{"4"}
-	case opts.IPv6:
-		return []string{"6"}
-	default:
-		return []string{""}
-	}
 }
 
 // logf logs a verbose message if logging is enabled.
