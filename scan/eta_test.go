@@ -73,23 +73,33 @@ func TestETASteadyRateIsAccurateAndStable(t *testing.T) {
 	}
 }
 
-func TestETAFollowsSpeedChanges(t *testing.T) {
-	// fast at first, then a quarter of the speed, as when a scan reaches a
-	// range of ports that a firewall drops
-	slowing := func(at time.Duration) float64 {
-		if at < 30*time.Second {
-			return 2000
+func TestETASlowRangeOnlyNudgesIt(t *testing.T) {
+	// fast, except for a stretch of ports whose traffic is dropped, which
+	// take the full timeout; the stretch should not multiply the estimate
+	slowRange := func(at time.Duration) float64 {
+		if at >= 60*time.Second && at < 90*time.Second {
+			return 100
 		}
-		return 500
+		return 2000
 	}
-	simulate(150000, slowing, func(at, truth, est time.Duration, ok bool) {
-		// a minute after the change the estimate should reflect the new speed
-		if at > 90*time.Second && truth > 10*time.Second {
-			if err := (est - truth).Abs(); err > truth/10+5*time.Second {
-				t.Errorf("at %s: estimate %s, truth %s", at, est, truth)
-			}
+	var lowest, highest time.Duration
+	simulate(300000, slowRange, func(at, truth, est time.Duration, ok bool) {
+		if !ok || at < 20*time.Second || truth < 10*time.Second {
+			return
+		}
+		// the estimate of when the scan ends should hold steady
+		end := at + est
+		if lowest == 0 || end < lowest {
+			lowest = end
+		}
+		highest = max(highest, end)
+		if err := (est - truth).Abs(); err > truth/2+5*time.Second {
+			t.Errorf("at %s: estimate %s, truth %s", at, est, truth)
 		}
 	})
+	if highest > lowest*3/2 {
+		t.Errorf("estimated end varied from %s to %s", lowest, highest)
+	}
 }
 
 func TestETAStall(t *testing.T) {

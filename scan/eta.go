@@ -8,11 +8,6 @@ import (
 const (
 	// etaWarmup is how long a scan runs before an estimate is given.
 	etaWarmup = 2 * time.Second
-	// etaSample is how often the rate is sampled.
-	etaSample = time.Second
-	// etaRateWindow is the time constant of the rate's moving average:
-	// roughly how far back the rate looks.
-	etaRateWindow = 10 * time.Second
 	// etaSettle is the time constant with which the estimate moves toward a
 	// new value, instead of jumping to it.
 	etaSettle = 5 * time.Second
@@ -20,19 +15,16 @@ const (
 
 // ETA estimates the time left in a scan.
 //
-// It uses the rate over roughly the last etaRateWindow, as an exponential
-// moving average sampled every second, rather than the average over the
-// whole scan, so it follows real changes in speed while ignoring bursts of
-// results. The estimate itself counts down in real time between updates and
-// eases toward each new value, so it does not jump around.
+// It uses the average rate over the whole scan so far. A scan's speed
+// depends on the ports being tested: ranges where something drops the
+// traffic are much slower than ranges that answer. The recent rate would
+// project a slow range onto every port left, while the whole-scan average
+// already reflects the mix of fast and slow ranges, so a slow range only
+// nudges it. The estimate itself counts down in real time between updates
+// and eases toward each new value, so it does not jump around.
 type ETA struct {
 	total   int
 	started time.Time
-
-	sampled     time.Time // when the rate was last sampled
-	sampledDone int       // checks done at that time
-	rate        float64   // smoothed checks per second
-	rated       bool      // whether rate has been measured
 
 	estimate  time.Duration // the last estimate given
 	estimated time.Time     // when it was given
@@ -41,7 +33,7 @@ type ETA struct {
 
 // NewETA returns an ETA for a scan of total checks starting at now.
 func NewETA(total int, now time.Time) *ETA {
-	return &ETA{total: total, started: now, sampled: now}
+	return &ETA{total: total, started: now}
 }
 
 // Update records that done checks are finished at now, and returns the
@@ -51,21 +43,12 @@ func (e *ETA) Update(done int, now time.Time) (time.Duration, bool) {
 	if done >= e.total {
 		return 0, true
 	}
-
-	if dt := now.Sub(e.sampled); dt >= etaSample {
-		current := float64(done-e.sampledDone) / dt.Seconds()
-		if e.rated {
-			e.rate += smoothing(dt, etaRateWindow) * (current - e.rate)
-		} else if current > 0 {
-			e.rate, e.rated = current, true
-		}
-		e.sampled, e.sampledDone = now, done
-	}
-	if !e.rated || e.rate <= 0 || now.Sub(e.started) < etaWarmup {
+	elapsed := now.Sub(e.started)
+	if done <= 0 || elapsed < etaWarmup {
 		return 0, false
 	}
 
-	target := time.Duration(float64(e.total-done) / e.rate * float64(time.Second))
+	target := time.Duration(float64(elapsed) * float64(e.total-done) / float64(done))
 	if !e.estimates {
 		e.estimate, e.estimated, e.estimates = target, now, true
 		return target, true
