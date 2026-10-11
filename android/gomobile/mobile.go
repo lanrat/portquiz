@@ -14,15 +14,21 @@ import (
 // scan does not call into Java for every port.
 const progressInterval = 100 * time.Millisecond
 
+// etaInterval is the longest time between OnProgress calls, so the estimate
+// of the time left stays current while no results arrive.
+const etaInterval = time.Second
+
 // Listener receives a scan's events. Its methods are called from a
 // background goroutine, one at a time and never on the UI thread.
 type Listener interface {
 	// OnRange is called for each range of consecutive ports with the same
 	// result, as soon as it is final.
 	OnRange(kind string, first, last int, open bool)
-	// OnProgress reports how many of the total checks are done, and how
-	// many of those found an open port.
-	OnProgress(done, total, open int)
+	// OnProgress reports how many of the total checks are done, how many of
+	// those found an open port, and the estimated time left in milliseconds,
+	// or -1 while there is too little data for an estimate. The estimate is
+	// smoothed so it counts down steadily between calls.
+	OnProgress(done, total, open, etaMillis int)
 	// OnFinish is called once, last, when the scan ends for any reason.
 	OnFinish(summary *Summary)
 }
@@ -143,17 +149,27 @@ func (m *Scan) report(ctx context.Context, s *scan.Scan, l Listener) {
 	ranges := scan.NewRanges(s.Ports(), func(r scan.Range) {
 		l.OnRange(r.Kind, r.First, r.Last, r.Open)
 	})
+	eta := scan.NewETA(total, time.Now())
+	var reported time.Time
+	progress := func(now time.Time) {
+		etaMillis := -1
+		if left, ok := eta.Update(done, now); ok {
+			etaMillis = int(left.Milliseconds())
+		}
+		l.OnProgress(done, total, open, etaMillis)
+		reported = now
+	}
 	tick := time.NewTicker(progressInterval)
 	defer tick.Stop()
 	changed := false
 
-	l.OnProgress(0, total, 0)
+	progress(time.Now())
 	results := s.Results()
 	for running := true; running; {
 		select {
-		case <-tick.C:
-			if changed {
-				l.OnProgress(done, total, open)
+		case now := <-tick.C:
+			if changed || now.Sub(reported) >= etaInterval {
+				progress(now)
 				changed = false
 			}
 		case r, ok := <-results:
@@ -170,7 +186,7 @@ func (m *Scan) report(ctx context.Context, s *scan.Scan, l Listener) {
 		}
 	}
 	ranges.Flush()
-	l.OnProgress(done, total, open)
+	progress(time.Now())
 
 	summary := &Summary{
 		Done:     done,

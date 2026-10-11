@@ -99,9 +99,9 @@ class ScanService : Service() {
             main.post { ScanState.addRange(kind, first, last, open) }
         }
 
-        override fun onProgress(done: Long, total: Long, open: Long) {
+        override fun onProgress(done: Long, total: Long, open: Long, etaMillis: Long) {
             main.post {
-                ScanState.progress(done, total, open)
+                ScanState.progress(done, total, open, etaMillis)
                 // Android drops notification updates that come too quickly
                 val now = SystemClock.elapsedRealtime()
                 if (now - lastNotified >= 1000) {
@@ -154,7 +154,7 @@ class ScanService : Service() {
         val builder = Notification.Builder(this, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_port)
             .setContentTitle(getString(R.string.notification_title, ScanState.host))
-            .setContentText(statusText(this))
+            .setContentText(listOfNotNull(statusText(this), etaText(this)).joinToString(" · "))
             .setProgress(ScanState.total.toInt(), ScanState.done.toInt(), ScanState.total == 0L)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -189,14 +189,15 @@ class ScanService : Service() {
             when {
                 error != null -> context.getString(R.string.status_error, error)
                 running && total == 0L -> context.getString(R.string.status_resolving, host)
-                running -> context.getString(
-                    R.string.status_running, done, total, open,
-                    remaining()?.let { context.getString(R.string.status_eta, formatDuration(it)) } ?: "",
-                )
+                running -> context.getString(R.string.status_running, done, total, open)
                 canceled -> context.getString(R.string.status_canceled, done, total, open)
                 startedAt == 0L -> ""
                 else -> context.getString(R.string.status_done, done, formatDuration(elapsed()), open)
             }
         }
+
+        /** The estimated time left while a scan runs, or null. */
+        fun etaText(context: Context): String? =
+            ScanState.remaining()?.let { context.getString(R.string.status_eta, formatEta(roundEta(it))) }
     }
 }

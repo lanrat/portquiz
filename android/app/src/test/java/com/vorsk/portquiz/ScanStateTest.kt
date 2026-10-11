@@ -17,6 +17,22 @@ class ScanStateTest {
     }
 
     @Test
+    fun roundsAndFormatsEstimates() {
+        assertEquals(0L, roundEta(-1_000))
+        assertEquals(5_000L, roundEta(1))
+        assertEquals(45_000L, roundEta(41_000))
+        assertEquals(60_000L, roundEta(59_000))
+        assertEquals(80_000L, roundEta(84_000))
+        assertEquals(90_000L, roundEta(86_000))
+        assertEquals(780_000L, roundEta(760_000))
+        assertEquals("45s", formatEta(45_000))
+        assertEquals("1m", formatEta(60_000))
+        assertEquals("3m 20s", formatEta(200_000))
+        assertEquals("12m", formatEta(720_000))
+        assertEquals("1h 5m", formatEta(3_900_000))
+    }
+
+    @Test
     fun recordsRangesAndProgress() {
         var notified = 0
         val listener: () -> Unit = { notified++ }
@@ -33,7 +49,10 @@ class ScanStateTest {
                 ScanState.lines,
             )
 
-            ScanState.progress(22, 100, 1)
+            ScanState.progress(22, 100, 1, -1)
+            assertNull(ScanState.remaining())
+            ScanState.progress(22, 100, 1, 60_000)
+            assertTrue(ScanState.remaining()!! in 59_000L..60_000L)
             assertEquals(22L, ScanState.done)
             assertEquals(100L, ScanState.total)
             assertEquals(1L, ScanState.open)
@@ -43,7 +62,7 @@ class ScanStateTest {
             assertTrue(ScanState.canceled)
             assertEquals(2L, ScanState.missed)
             assertNull(ScanState.remaining())
-            assertEquals(5, notified)
+            assertEquals(6, notified)
         } finally {
             ScanState.removeListener(listener)
         }

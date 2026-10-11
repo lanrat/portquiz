@@ -30,6 +30,10 @@ object ScanState {
         private set
     var missed = 0L
         private set
+    /** The scan's estimate of the milliseconds left, or -1 if none yet. */
+    private var etaMillis = -1L
+    /** When [etaMillis] was received. */
+    private var etaAt = 0L
     var error: String? = null
         private set
     val lines = ArrayList<Line>()
@@ -61,6 +65,7 @@ object ScanState {
         finishedAt = 0
         canceled = false
         missed = 0
+        etaMillis = -1
         error = null
         lines.clear()
         changed()
@@ -72,10 +77,12 @@ object ScanState {
         changed()
     }
 
-    fun progress(done: Long, total: Long, open: Long) {
+    fun progress(done: Long, total: Long, open: Long, etaMillis: Long) {
         this.done = done
         this.total = total
         this.open = open
+        this.etaMillis = etaMillis
+        etaAt = SystemClock.elapsedRealtime()
         changed()
     }
 
@@ -92,11 +99,37 @@ object ScanState {
     fun elapsed(): Long =
         (if (running) SystemClock.elapsedRealtime() else finishedAt) - startedAt
 
-    /** Estimated milliseconds left, from the average rate so far, or null. */
+    /**
+     * Estimated milliseconds left, or null. The scan's estimate is smoothed
+     * and arrives at least every second; between updates it counts down.
+     */
     fun remaining(): Long? {
-        val elapsed = elapsed()
-        if (!running || done == 0L || total == 0L || elapsed < 2000) return null
-        return (total - done) * elapsed / done
+        if (!running || etaMillis < 0) return null
+        return (etaMillis - (SystemClock.elapsedRealtime() - etaAt)).coerceAtLeast(0)
+    }
+}
+
+/**
+ * Rounds an estimate of the time left for display, like the command line
+ * client, so it changes in steps that match its precision: up to the next 5
+ * seconds below a minute, 10 seconds below 10 minutes, and whole minutes
+ * beyond.
+ */
+fun roundEta(millis: Long): Long = when {
+    millis <= 0 -> 0
+    millis < 60_000 -> (millis + 4_999) / 5_000 * 5_000
+    millis < 600_000 -> (millis + 5_000) / 10_000 * 10_000
+    else -> (millis + 30_000) / 60_000 * 60_000
+}
+
+/** Formats a rounded estimate, leaving out zero units: "45s", "3m 20s", "12m", "1h 5m". */
+fun formatEta(millis: Long): String {
+    val s = millis / 1000
+    val (h, m, sec) = Triple(s / 3600, s % 3600 / 60, s % 60)
+    return when {
+        h > 0 -> if (m > 0) "${h}h ${m}m" else "${h}h"
+        m > 0 -> if (sec > 0) "${m}m ${sec}s" else "${m}m"
+        else -> "${sec}s"
     }
 }
 

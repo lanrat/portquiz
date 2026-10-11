@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"portquiz/scan"
+
 	"golang.org/x/term"
 )
 
@@ -24,6 +26,7 @@ type progress struct {
 	open    int       // Number of checks that found an open port
 	start   time.Time // When testing started
 	lastLen int       // Length of the line currently on screen, 0 if none
+	eta     *scan.ETA // Estimates the time left
 }
 
 // progressEnabled reports whether the progress line should be shown.
@@ -36,10 +39,12 @@ func progressEnabled() bool {
 
 // newProgress returns a progress display for the given number of checks.
 func newProgress(total int) *progress {
+	now := time.Now()
 	return &progress{
 		out:   os.Stderr,
 		total: total,
-		start: time.Now(),
+		start: now,
+		eta:   scan.NewETA(total, now),
 	}
 }
 
@@ -89,8 +94,8 @@ func (p *progress) line(width int) string {
 	}
 	// pad every field to its widest possible value so the bar doesn't jitter
 	n := len(strconv.Itoa(p.total))
-	stats := fmt.Sprintf(" %3d%% %*d/%d open:%-*d closed:%-*d %-10s",
-		pct, n, p.done, p.total, n, p.open, n, p.done-p.open, p.eta())
+	stats := fmt.Sprintf(" %3d%% %*d/%d open:%-*d closed:%-*d %10s",
+		pct, n, p.done, p.total, n, p.open, n, p.done-p.open, p.remaining())
 
 	// leave the last column empty so the terminal never wraps the line
 	avail := width - 1
@@ -114,19 +119,33 @@ func (p *progress) line(width int) string {
 	return "[" + bar + "]" + stats
 }
 
-// eta estimates the time remaining from the average rate so far.
+// remaining estimates the time left. It is smoothed and rounded so it
+// counts down steadily rather than jumping with every burst of results.
 // No estimate is given until there is enough data for it to be meaningful.
-func (p *progress) eta() string {
-	elapsed := time.Since(p.start)
-	if p.done == 0 || elapsed < 2*time.Second {
+func (p *progress) remaining() string {
+	left, ok := p.eta.Update(p.done, time.Now())
+	if !ok {
 		return "ETA --"
 	}
-	if p.done >= p.total {
-		return "ETA 0s"
+	return "ETA " + formatETA(scan.RoundETA(left))
+}
+
+// formatETA formats a rounded estimate compactly, leaving out zero units:
+// 45s, 3m20s, 12m, 1h5m.
+func formatETA(d time.Duration) string {
+	h, m, s := int(d.Hours()), int(d.Minutes())%60, int(d.Seconds())%60
+	switch {
+	case h > 0 && m > 0:
+		return fmt.Sprintf("%dh%dm", h, m)
+	case h > 0:
+		return fmt.Sprintf("%dh", h)
+	case m > 0 && s > 0:
+		return fmt.Sprintf("%dm%ds", m, s)
+	case m > 0:
+		return fmt.Sprintf("%dm", m)
+	default:
+		return fmt.Sprintf("%ds", s)
 	}
-	rate := float64(p.done) / elapsed.Seconds()
-	remaining := time.Duration(float64(p.total-p.done) / rate * float64(time.Second))
-	return "ETA " + remaining.Round(time.Second).String()
 }
 
 // terminalWidth returns the width of the terminal on stderr, or 80 if unknown.

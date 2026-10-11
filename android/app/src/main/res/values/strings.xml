@@ -35,8 +35,8 @@
     <string name="error_no_host">Enter the server to test</string>
     <string name="error_no_protocol">Select TCP, UDP or both</string>
     <string name="status_resolving">Starting scan of %1$s…</string>
-    <string name="status_running">%1$d / %2$d tested · %3$d open%4$s</string>
-    <string name="status_eta"> · about %1$s left</string>
+    <string name="status_running">%1$d / %2$d tested · %3$d open</string>
+    <string name="status_eta">about %1$s left</string>
     <string name="status_done">Tested %1$d in %2$s · %3$d open</string>
     <string name="status_canceled">Stopped after %1$d of %2$d · %3$d open</string>
     <string name="status_error">Error: %1$s</string>

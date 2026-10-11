@@ -15,7 +15,7 @@ import (
 type recorder struct {
 	mu       sync.Mutex
 	ranges   []string
-	progress [][3]int
+	progress [][4]int
 	summary  *Summary
 	finished chan struct{}
 }
@@ -28,10 +28,10 @@ func (r *recorder) OnRange(kind string, first, last int, open bool) {
 	r.ranges = append(r.ranges, fmt.Sprintf("%s %d-%d %v", kind, first, last, open))
 }
 
-func (r *recorder) OnProgress(done, total, open int) {
+func (r *recorder) OnProgress(done, total, open, etaMillis int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.progress = append(r.progress, [3]int{done, total, open})
+	r.progress = append(r.progress, [4]int{done, total, open, etaMillis})
 }
 
 func (r *recorder) OnFinish(s *Summary) {
@@ -93,8 +93,8 @@ func TestScan(t *testing.T) {
 	if !slices.Equal(r.ranges, want) {
 		t.Errorf("ranges: got %q, want %q", r.ranges, want)
 	}
-	if got := r.progress[len(r.progress)-1]; got != [3]int{3, 3, 1} {
-		t.Errorf("last progress: got %v, want [3 3 1]", got)
+	if got := r.progress[len(r.progress)-1]; got != [4]int{3, 3, 1, 0} {
+		t.Errorf("last progress: got %v, want [3 3 1 0]", got)
 	}
 	s := r.summary
 	if s.Done != 3 || s.Total != 3 || s.Open != 1 || s.Canceled || s.Error != "" {

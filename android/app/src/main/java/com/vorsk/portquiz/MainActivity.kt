@@ -43,6 +43,7 @@ class MainActivity : Activity() {
     private lateinit var start: Button
     private lateinit var progress: ProgressBar
     private lateinit var status: TextView
+    private lateinit var eta: TextView
     private lateinit var filter: RadioGroup
     private lateinit var results: ListView
     private lateinit var noResults: TextView
@@ -99,6 +100,7 @@ class MainActivity : Activity() {
         start = findViewById(R.id.start)
         progress = findViewById(R.id.progress)
         status = findViewById(R.id.status)
+        eta = findViewById(R.id.eta)
         filter = findViewById(R.id.filter)
         results = findViewById(R.id.results)
         noResults = findViewById(R.id.no_results)
@@ -267,6 +269,8 @@ class MainActivity : Activity() {
             text += "\n" + getString(R.string.status_missed, ScanState.missed)
         }
         status.text = text
+        eta.text = ScanService.etaText(this) ?: ""
+        eta.setTextColor(secondaryText)
         if (ScanState.error != null || (!running && ScanState.missed > 0)) {
             status.setTextColor(getColor(R.color.warning))
         } else {
