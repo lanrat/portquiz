@@ -118,4 +118,6 @@ val bindGo = tasks.register<Exec>("bindGo") {
 dependencies {
     implementation(files(goAar).builtBy(bindGo))
     testImplementation("junit:junit:4.13.2")
+    // the real org.json for unit tests; Android's is only stubs off device
+    testImplementation("org.json:json:20260814")
 }

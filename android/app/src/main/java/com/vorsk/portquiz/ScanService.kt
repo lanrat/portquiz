@@ -113,15 +113,20 @@ class ScanService : Service() {
         }
 
         override fun onFinish(summary: Summary) {
+            // parse here, off the main thread: a scan with scattered results
+            // has a large report
+            val report = summary.report.takeIf { it.isNotEmpty() }?.let {
+                runCatching { ScanReport.parse(it) }.getOrNull()
+            }
             main.post {
-                finish(summary.canceled, summary.missed, summary.error.ifEmpty { null })
+                finish(summary.canceled, summary.missed, summary.error.ifEmpty { null }, report)
             }
         }
     }
 
-    private fun finish(canceled: Boolean, missed: Long, error: String?) {
+    private fun finish(canceled: Boolean, missed: Long, error: String?, report: ScanReport? = null) {
         scan = null
-        ScanState.finish(canceled, missed, error)
+        ScanState.finish(canceled, missed, error, report)
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = null
         stopForeground(STOP_FOREGROUND_REMOVE)

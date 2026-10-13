@@ -87,4 +87,5 @@ fun ScanSettings.toConfig(): Config = Mobile.newConfig().also {
     it.rate = rate
     it.retries = retries
     it.parallel = parallel
+    it.version = BuildConfig.VERSION_NAME
 }

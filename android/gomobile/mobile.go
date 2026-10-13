@@ -5,6 +5,7 @@ package mobile
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -45,6 +46,10 @@ type Summary struct {
 	Missed int
 	// Error is empty unless the scan failed.
 	Error string
+	// Report is the scan's report as JSON, the same as the command line
+	// client's -json: per kind, counts by status, open-port response times
+	// and every result as ranges by status.
+	Report string
 }
 
 // Config configures a scan; NewConfig returns the defaults.
@@ -62,6 +67,7 @@ type Config struct {
 	Rate          int  // connections started per second, 0 for no limit
 	Multi         int  // times each port is tested
 	Password      string
+	Version       string // the app's version, recorded in the report
 }
 
 // NewConfig returns a Config with the default settings and TCP selected.
@@ -129,7 +135,7 @@ func Start(c *Config, l Listener) (*Scan, error) {
 		addrs[i] = a.String()
 	}
 	m := &Scan{cancel: cancel, done: make(chan struct{}), addrs: strings.Join(addrs, ", ")}
-	go m.report(ctx, s, l)
+	go m.report(ctx, s, scan.NewRecorder(s, time.Now()), c.Version, l)
 	return m, nil
 }
 
@@ -152,8 +158,9 @@ func (m *Scan) AwaitFinish() {
 	<-m.done
 }
 
-// report forwards the scan's results to l until the scan ends.
-func (m *Scan) report(ctx context.Context, s *scan.Scan, l Listener) {
+// report forwards the scan's results to l until the scan ends, recording
+// them in rec for the summary's report.
+func (m *Scan) report(ctx context.Context, s *scan.Scan, rec *scan.Recorder, version string, l Listener) {
 	defer close(m.done)
 	defer m.cancel()
 
@@ -194,6 +201,7 @@ func (m *Scan) report(ctx context.Context, s *scan.Scan, l Listener) {
 			if r.Open {
 				open++
 			}
+			rec.Add(r)
 			changed = true
 			ranges.Add(r)
 		}
@@ -212,6 +220,11 @@ func (m *Scan) report(ctx context.Context, s *scan.Scan, l Listener) {
 	}
 	for _, n := range s.Missed() {
 		summary.Missed += n
+	}
+	rep := rec.Report(time.Now(), summary.Canceled)
+	rep.Version = version
+	if data, err := json.Marshal(rep); err == nil {
+		summary.Report = string(data)
 	}
 	l.OnFinish(summary)
 }

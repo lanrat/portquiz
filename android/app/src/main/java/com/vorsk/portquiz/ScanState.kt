@@ -39,6 +39,9 @@ object ScanState {
     private var etaAt = 0L
     var error: String? = null
         private set
+    /** The report of the last finished scan, or null if there is none. */
+    var report: ScanReport? = null
+        private set
     val lines = ArrayList<Line>()
 
     /** Increases with every scan, so views can tell a new scan's lines apart. */
@@ -71,6 +74,7 @@ object ScanState {
         missed = 0
         etaMillis = -1
         error = null
+        report = null
         lines.clear()
         changed()
     }
@@ -100,8 +104,9 @@ object ScanState {
         changed()
     }
 
-    fun finish(canceled: Boolean, missed: Long, error: String?) {
+    fun finish(canceled: Boolean, missed: Long, error: String?, report: ScanReport? = null) {
         running = false
+        this.report = report
         finishedAt = SystemClock.elapsedRealtime()
         this.canceled = canceled
         this.missed = missed

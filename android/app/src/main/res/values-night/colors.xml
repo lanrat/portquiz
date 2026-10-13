@@ -2,4 +2,11 @@
 <resources>
     <color name="open">#7BD88F</color>
     <color name="warning">#F2B8B5</color>
+    <!-- port map, validated as a set for colorblind-safe adjacent pairs -->
+    <color name="map_open">#199E70</color>
+    <color name="map_rejected">#D95926</color>
+    <color name="map_dropped">#3987E5</color>
+    <color name="map_interfered">#D55181</color>
+    <color name="map_error">#C98500</color>
+    <color name="map_track">#2E2E2C</color>
 </resources>

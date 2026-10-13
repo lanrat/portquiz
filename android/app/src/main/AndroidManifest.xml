@@ -26,6 +26,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ReportActivity"
+            android:exported="false"
+            android:label="@string/summary"
+            android:parentActivityName=".MainActivity" />
+
         <service
             android:name=".ScanService"
             android:exported="false"

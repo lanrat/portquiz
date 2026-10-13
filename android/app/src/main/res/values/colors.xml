@@ -3,4 +3,11 @@
     <color name="open">#1B7F3A</color>
     <color name="warning">#B3261E</color>
     <color name="icon_background">#1E3A5F</color>
+    <!-- port map, validated as a set for colorblind-safe adjacent pairs -->
+    <color name="map_open">#1BAF7A</color>
+    <color name="map_rejected">#EB6834</color>
+    <color name="map_dropped">#2A78D6</color>
+    <color name="map_interfered">#E87BA4</color>
+    <color name="map_error">#EDA100</color>
+    <color name="map_track">#E6E6E3</color>
 </resources>

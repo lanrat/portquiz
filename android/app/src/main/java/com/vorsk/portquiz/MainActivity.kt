@@ -12,7 +12,6 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowInsets
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
@@ -45,6 +44,7 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var eta: TextView
     private lateinit var filter: RadioGroup
+    private lateinit var summary: Button
     private lateinit var results: ListView
     private lateinit var noResults: TextView
 
@@ -102,6 +102,8 @@ class MainActivity : Activity() {
         status = findViewById(R.id.status)
         eta = findViewById(R.id.eta)
         filter = findViewById(R.id.filter)
+        summary = findViewById(R.id.summary)
+        summary.setOnClickListener { startActivity(Intent(this, ReportActivity::class.java)) }
         results = findViewById(R.id.results)
         noResults = findViewById(R.id.no_results)
 
@@ -279,6 +281,7 @@ class MainActivity : Activity() {
         } else {
             status.setTextColor(secondaryText)
         }
+        summary.visibility = if (!running && ScanState.report != null) View.VISIBLE else View.GONE
         renderResults()
     }
 
@@ -302,49 +305,5 @@ class MainActivity : Activity() {
         val empty = shown.isEmpty() && lines.isNotEmpty()
         noResults.visibility = if (empty) View.VISIBLE else View.GONE
         results.visibility = if (empty) View.GONE else View.VISIBLE
-    }
-
-    /**
-     * Draws behind the status and navigation bars on every Android version,
-     * as Android 15 and later require, so [applyInsets] works the same way
-     * everywhere.
-     */
-    private fun drawBehindSystemBars() {
-        when {
-            // Android 15 and later always draw behind the system bars
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM -> {}
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
-                @Suppress("DEPRECATION")
-                window.setDecorFitsSystemWindows(false)
-            else ->
-                @Suppress("DEPRECATION")
-                window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-        }
-    }
-
-    /** Keeps content clear of the status bar, navigation bar and keyboard. */
-    private fun applyInsets(root: View) {
-        val left = root.paddingLeft
-        val top = root.paddingTop
-        val right = root.paddingRight
-        val bottom = root.paddingBottom
-        root.setOnApplyWindowInsetsListener { v, insets ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val bars = insets.getInsets(
-                    WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or WindowInsets.Type.ime()
-                )
-                v.setPadding(left + bars.left, top + bars.top, right + bars.right, bottom + bars.bottom)
-            } else {
-                @Suppress("DEPRECATION")
-                v.setPadding(
-                    left + insets.systemWindowInsetLeft, top + insets.systemWindowInsetTop,
-                    right + insets.systemWindowInsetRight, bottom + insets.systemWindowInsetBottom,
-                )
-            }
-            insets
-        }
     }
 }

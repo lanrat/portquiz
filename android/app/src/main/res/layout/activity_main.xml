@@ -300,33 +300,50 @@
             android:textAppearance="?android:attr/textAppearanceSmall" />
     </LinearLayout>
 
-    <!-- filters the results shown; it does not change the scan -->
-    <RadioGroup
-        android:id="@+id/filter"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <RadioButton
-            android:id="@+id/filter_all"
-            android:layout_width="wrap_content"
+        <!-- filters the results shown; it does not change the scan -->
+        <RadioGroup
+            android:id="@+id/filter"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="16dp"
-            android:text="@string/filter_all" />
+            android:layout_weight="1"
+            android:orientation="horizontal">
 
-        <RadioButton
-            android:id="@+id/filter_open"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="16dp"
-            android:text="@string/filter_open" />
+            <RadioButton
+                android:id="@+id/filter_all"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="16dp"
+                android:text="@string/filter_all" />
 
-        <RadioButton
-            android:id="@+id/filter_closed"
+            <RadioButton
+                android:id="@+id/filter_open"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="16dp"
+                android:text="@string/filter_open" />
+
+            <RadioButton
+                android:id="@+id/filter_closed"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/filter_closed" />
+        </RadioGroup>
+
+        <!-- opens the summary of the finished scan -->
+        <Button
+            android:id="@+id/summary"
+            style="?android:attr/borderlessButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/filter_closed" />
-    </RadioGroup>
+            android:text="@string/summary"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <ListView
         android:id="@+id/results"

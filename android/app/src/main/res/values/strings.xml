@@ -46,4 +46,74 @@
     <string name="channel_results">Scan results</string>
     <string name="notification_title">Testing %1$s</string>
     <string name="notification_done_title">Finished testing %1$s</string>
+
+    <!-- summary of a finished scan -->
+    <string name="summary">Summary</string>
+    <string name="save_json">Save JSON</string>
+    <string name="share">Share</string>
+    <string name="saved">Report saved</string>
+    <string name="save_failed">Could not save the report: %1$s</string>
+    <string name="share_too_large">The report is too large to share as text; save it instead.</string>
+    <string name="report_file_name">portquiz-%1$s-%2$s.json</string>
+    <string name="summary_header">%1$s · tested %2$s in %3$s · %4$s per second</string>
+    <string name="summary_stopped">Stopped early: %1$s not tested.</string>
+    <string name="kind_ip_version">%1$s over IPv%2$s</string>
+    <string name="section_overview">Overview</string>
+    <string name="overview_line">%1$s at %2$s: %3$s of %4$s open (%5$s)</string>
+    <string name="versions_match">%1$s: IPv4 and IPv6 results match.</string>
+    <plurals name="versions_differ">
+        <item quantity="one">%1$s: IPv4 and IPv6 differ on %2$s port:</item>
+        <item quantity="other">%1$s: IPv4 and IPv6 differ on %2$s ports:</item>
+    </plurals>
+    <string name="open_over_ipv4_only">%1$s open over IPv4 only</string>
+    <string name="open_over_ipv6_only">%1$s open over IPv6 only</string>
+    <string name="and_more">…and %1$s more</string>
+    <string name="section_map">Port map</string>
+    <string name="map_ports">%1$s: ports %2$s</string>
+    <string name="map_hint">Touch a map to see the ports under your finger.</string>
+    <string name="map_inspect">Ports %1$s: %2$s</string>
+    <string name="count_status">%1$s %2$s</string>
+    <string name="list_separator">,\u0020</string>
+    <string name="section_closed">How closed ports were closed</string>
+    <string name="explain_rejected">Rejected: actively refused by a reset, an unreachable message or a firewall set to reject.</string>
+    <string name="explain_dropped">Dropped: nothing came back before the timeout, as when a firewall silently discards traffic.</string>
+    <string name="explain_interfered">Interfered: something other than the portquiz server answered, or the connection was cut or left silent, as a proxy, captive portal or filter on the path does.</string>
+    <string name="explain_errors">Errors: could not be tested because of a problem on this phone, such as running out of connections.</string>
+    <string name="closed_line">%1$s: %2$s</string>
+    <string name="no_closed">%1$s: no closed ports.</string>
+    <string name="interfered_ports">%1$s interfered ports: %2$s</string>
+    <string name="section_largest">Largest blocked ranges</string>
+    <string name="largest_line">%1$s · %2$s · %3$s</string>
+    <plurals name="port_count">
+        <item quantity="one">%1$s port</item>
+        <item quantity="other">%1$s ports</item>
+    </plurals>
+    <string name="mixed">mixed</string>
+    <string name="none_blocked">%1$s: no blocked ranges.</string>
+    <string name="section_services">Common services</string>
+    <string name="services_none">None of these ports were tested.</string>
+    <string name="service_column">Service</string>
+    <string name="port_column">Port</string>
+    <string name="result_column">Result</string>
+    <string name="ipv4_column">IPv4</string>
+    <string name="ipv6_column">IPv6</string>
+    <string name="service_port">%1$d/%2$s</string>
+    <string name="not_tested">not tested</string>
+    <string name="section_timing">Speed and timing</string>
+    <string name="timing_overall">Tested %1$s in %2$s, %3$s per second on average.</string>
+    <string name="timing_rtt">%1$s: open ports answered in %2$s ms (median), %3$s ms (95th percentile), %4$s to %5$s ms (fastest to slowest).</string>
+    <string name="timing_no_rtt">%1$s: no open ports, so no response times.</string>
+    <string name="timing_adaptive">%1$s: timeout %2$s ms at the end, adapted from up to %3$s ms. Ports that did not answer were retried: %4$d.</string>
+    <string name="timing_fixed">%1$s: timeout %2$s ms. Ports that did not answer were retried: %3$d.</string>
+    <plurals name="timing_late">
+        <item quantity="one">%1$s: %2$s open port only answered on a slower recheck, so dropped ports may be open.</item>
+        <item quantity="other">%1$s: %2$s open ports only answered on a slower recheck, so dropped ports may be open.</item>
+    </plurals>
+    <string-array name="status_names">
+        <item>open</item>
+        <item>rejected</item>
+        <item>dropped</item>
+        <item>interfered</item>
+        <item>errors</item>
+    </string-array>
 </resources>

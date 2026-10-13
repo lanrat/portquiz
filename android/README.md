@@ -20,6 +20,16 @@ Scans keep running with the screen off or the app in the background: progress is
 
 The IP version setting chooses between Auto, IPv4, IPv6 and Both. Auto tests every port over both IPv4 and IPv6 when the server's name has an address of each and the phone's network supports both, and otherwise the one version available; Both requires both. Below the results, All, Open and Closed choose which ranges are shown; this only filters the list, so it can be changed after a scan.
 
+When a scan finishes, Summary next to the filter opens a summary of it:
+
+- **Overview:** how many ports were open for each protocol and IP version, and when both IPv4 and IPv6 were tested, the ports open over only one of them.
+- **Port map:** a strip for each protocol across the ports tested, colored by result, so blocked ranges stand out. Touch it to see the ports under your finger.
+- **How closed ports were closed:** rejected (actively refused), dropped (no response, as when a firewall silently discards traffic) or interfered (something other than the portquiz server answered, such as a proxy or captive portal), with interfered ports listed.
+- **Common services:** whether ports such as SSH, HTTPS, DNS, NTP and the usual VPN ports are open.
+- **Largest blocked ranges**, and **speed and timing:** how long the scan took, how quickly open ports answered, and the timeout used.
+
+Save JSON saves the scan's report, the same as the command line client's `-json`, and Share sends it as text to another app.
+
 Advanced settings, under Advanced, match the command line client's options and defaults: the timeout in milliseconds and whether it adapts to how quickly open ports respond (`-timeout`, `-adaptive`), connections started per second with 0 for no limit (`-rate`), retries for ports that do not respond, blank for the default (`-retry`), and how many ports are tested at once (`-parallel`). Reset to defaults restores them, and a blank field uses its default.
 
 ## Build
@@ -43,7 +53,7 @@ Gradle builds the Go library first with `gomobile/bind.sh`, which builds `gomobi
 Layout:
 
 - `gomobile/`: Go module that adapts the `scan` package for gomobile
-- `app/`: the Kotlin app; `ScanService` runs scans as a foreground service, `MainActivity` is the only screen
+- `app/`: the Kotlin app; `ScanService` runs scans as a foreground service, `MainActivity` is the main screen and `ReportActivity` the summary of a finished scan
 
 ## Release signing
 

@@ -4,7 +4,7 @@
     <style name="Theme.Portquiz" parent="android:Theme.DeviceDefault.DayNight">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
-        <!-- the app draws behind the system bars, see MainActivity -->
+        <!-- the app draws behind the system bars, see SystemBars.kt -->
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>

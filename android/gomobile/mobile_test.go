@@ -2,6 +2,7 @@ package mobile
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -9,6 +10,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"portquiz/scan"
 )
 
 // recorder is a Listener that records every event.
@@ -83,6 +86,7 @@ func TestScan(t *testing.T) {
 	c.Host = "127.0.0.1"
 	c.Ports = fmt.Sprintf("%d-%d", open, open+2)
 	c.Rate = 0
+	c.Version = "v9.9.9"
 	r := newRecorder()
 	m, err := Start(c, r)
 	if err != nil {
@@ -103,6 +107,14 @@ func TestScan(t *testing.T) {
 	s := r.summary
 	if s.Done != 3 || s.Total != 3 || s.Open != 1 || s.Canceled || s.Error != "" {
 		t.Errorf("summary: got %+v", s)
+	}
+	var rep scan.Report
+	if err := json.Unmarshal([]byte(s.Report), &rep); err != nil {
+		t.Fatalf("report %q: %v", s.Report, err)
+	}
+	if rep.Version != "v9.9.9" || rep.Host != "127.0.0.1" || len(rep.Kinds) != 1 ||
+		rep.Kinds[0].Open != 1 || rep.Kinds[0].Tested != 3 {
+		t.Errorf("report: %s", s.Report)
 	}
 }
 
