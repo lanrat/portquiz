@@ -32,6 +32,13 @@
             android:label="@string/summary"
             android:parentActivityName=".MainActivity" />
 
+        <!-- serves shared reports to the app they are shared with -->
+        <provider
+            android:name=".ReportProvider"
+            android:authorities="${applicationId}.reports"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
         <service
             android:name=".ScanService"
             android:exported="false"

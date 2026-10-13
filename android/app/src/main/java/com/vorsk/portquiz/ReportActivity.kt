@@ -1,6 +1,7 @@
 package com.vorsk.portquiz
 
 import android.app.Activity
+import android.content.ClipData
 import android.content.Intent
 import android.os.Bundle
 import android.util.TypedValue
@@ -302,14 +303,18 @@ class ReportActivity : Activity() {
         }
     }
 
+    /** A file name for the report, such as portquiz-example.com-20261013-0930.json. */
+    private fun fileName(): String {
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.ROOT).format(Date())
+        return getString(R.string.report_file_name, report.host.replace(Regex("[^A-Za-z0-9.-]"), "_"), stamp)
+    }
+
     /** Lets the user choose where to save the JSON report. */
     private fun save() {
-        val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.ROOT).format(Date())
-        val name = getString(R.string.report_file_name, report.host.replace(Regex("[^A-Za-z0-9.-]"), "_"), stamp)
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
             .addCategory(Intent.CATEGORY_OPENABLE)
-            .setType("application/json")
-            .putExtra(Intent.EXTRA_TITLE, name)
+            .setType(ReportProvider.TYPE)
+            .putExtra(Intent.EXTRA_TITLE, fileName())
         startActivityForResult(intent, SAVE_REQUEST)
     }
 
@@ -327,18 +332,24 @@ class ReportActivity : Activity() {
         }
     }
 
-    /** Shares the JSON report as text, which apps such as email accept. */
+    /**
+     * Shares the JSON report as a file. As text it could exceed what an
+     * intent can carry, and Android then silently drops the share.
+     */
     private fun share() {
-        // intents are limited to about 1 MB; a scan with very scattered
-        // results can exceed that
-        if (report.json.length > MAX_SHARE_CHARS) {
-            Toast.makeText(this, R.string.share_too_large, Toast.LENGTH_LONG).show()
+        val uri = try {
+            ReportProvider.save(this, fileName(), report.json)
+        } catch (e: Exception) {
+            Toast.makeText(this, getString(R.string.save_failed, e.message ?: e.toString()), Toast.LENGTH_LONG).show()
             return
         }
         val send = Intent(Intent.ACTION_SEND)
-            .setType("text/plain")
+            .setType(ReportProvider.TYPE)
+            .putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_SUBJECT, getString(R.string.notification_done_title, report.host))
-            .putExtra(Intent.EXTRA_TEXT, report.json)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        // the chooser passes the read permission on only through ClipData
+        send.clipData = ClipData.newRawUri(fileName(), uri)
         startActivity(Intent.createChooser(send, getString(R.string.share)))
     }
 
@@ -412,6 +423,5 @@ class ReportActivity : Activity() {
 
     companion object {
         private const val SAVE_REQUEST = 1
-        private const val MAX_SHARE_CHARS = 500_000
     }
 }

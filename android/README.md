@@ -28,7 +28,7 @@ When a scan finishes, Summary next to the filter opens a summary of it:
 - **Common services:** whether ports such as SSH, HTTPS, DNS, NTP and the usual VPN ports are open.
 - **Largest blocked ranges**, and **speed and timing:** how long the scan took, how quickly open ports answered, and the timeout used.
 
-Save JSON saves the scan's report, the same as the command line client's `-json`, and Share sends it as text to another app.
+Save JSON saves the scan's report, the same as the command line client's `-json`, and Share sends it as a JSON file to another app, such as email or a messaging app.
 
 Advanced settings, under Advanced, match the command line client's options and defaults: the timeout in milliseconds and whether it adapts to how quickly open ports respond (`-timeout`, `-adaptive`), connections started per second with 0 for no limit (`-rate`), retries for ports that do not respond, blank for the default (`-retry`), and how many ports are tested at once (`-parallel`). Reset to defaults restores them, and a blank field uses its default.
 

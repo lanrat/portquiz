@@ -36,7 +36,7 @@ class PortMapView @JvmOverloads constructor(
     }
     private val track = Paint().apply { color = context.getColor(R.color.map_track) }
     private val columnWidth = resources.displayMetrics.density * 2
-    private val minSliver = resources.displayMetrics.density * 2
+    private val minSliver = resources.displayMetrics.density * 3
 
     /** Shows kind's results from port first to last. */
     fun show(kind: KindReport, first: Int, last: Int) {
@@ -49,7 +49,7 @@ class PortMapView @JvmOverloads constructor(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val height = (resources.displayMetrics.density * 32).toInt()
+        val height = (resources.displayMetrics.density * 64).toInt()
         setMeasuredDimension(
             getDefaultSize(suggestedMinimumWidth, widthMeasureSpec),
             resolveSize(height, heightMeasureSpec),
@@ -92,12 +92,12 @@ class PortMapView @JvmOverloads constructor(
         for ((i, counts) in columns.withIndex()) {
             val size = columnStart(i + 1, columns.size) - columnStart(i, columns.size)
             if (size <= 0) continue
+            val heights = segmentHeights(counts, size, h, minSliver)
             var bottom = h
             for (status in PortStatus.entries) {
-                val n = counts[status.ordinal]
-                if (n == 0) continue
-                val segment = max(h * n / size, minSliver)
-                val top = max(bottom - segment, 0f)
+                val segment = heights[status.ordinal]
+                if (segment <= 0f) continue
+                val top = bottom - segment
                 canvas.drawRect(i * colW, top, (i + 1) * colW, bottom, paints[status.ordinal])
                 bottom = top
             }
@@ -133,4 +133,25 @@ class PortMapView @JvmOverloads constructor(
             PortStatus.ERROR -> R.color.map_error
         }
     }
+}
+
+/**
+ * The height of each status's segment in a map column of the given height
+ * whose size ports had counts of each status. Segments are in proportion,
+ * except that every status present gets at least minimum, so a few closed
+ * ports among many open ones, or the reverse, stay visible; the extra height
+ * comes from the tallest segment, so the column still fits.
+ */
+fun segmentHeights(counts: IntArray, size: Int, height: Float, minimum: Float): FloatArray {
+    val heights = FloatArray(counts.size)
+    if (size <= 0) return heights
+    for (i in counts.indices) {
+        if (counts[i] > 0) heights[i] = max(height * counts[i] / size, minimum)
+    }
+    val excess = heights.sum() - height
+    if (excess > 0f) {
+        val tallest = heights.indices.maxBy { heights[it] }
+        heights[tallest] = max(heights[tallest] - excess, minimum)
+    }
+    return heights
 }

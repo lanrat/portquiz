@@ -53,7 +53,6 @@
     <string name="share">Share</string>
     <string name="saved">Report saved</string>
     <string name="save_failed">Could not save the report: %1$s</string>
-    <string name="share_too_large">The report is too large to share as text; save it instead.</string>
     <string name="report_file_name">portquiz-%1$s-%2$s.json</string>
     <string name="summary_header">%1$s · tested %2$s in %3$s · %4$s per second</string>
     <string name="summary_stopped">Stopped early: %1$s not tested.</string>
