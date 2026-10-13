@@ -56,6 +56,8 @@ make
 ./portquiz -tcp -udp -open example.com
 ```
 
+Or, with nothing installed, open `http://<server>/` in any browser for a quick check (see [Browser Test](#browser-test)).
+
 ## Server
 
 > ⚠️ **WARNING**: The server creates iptables rules that redirect ALL incoming traffic to the listening IP. If you use the same IP for remote access (SSH, etc.), **YOU WILL BE LOCKED OUT**! Always use a dedicated IP address for the server.
@@ -130,7 +132,7 @@ rc-service portquiz start
 Settings in `/etc/conf.d/portquiz`:
 
 - `PORTQUIZ_LISTEN` (required): comma separated IP addresses to listen on. Like `-listen`, all traffic to these addresses is redirected to portquiz, so use addresses dedicated to it and not the one you manage the machine through.
-- `PORTQUIZ_OPTS`: extra arguments for `portquiz-server`, for example `-udp` to serve only UDP.
+- `PORTQUIZ_OPTS`: extra arguments for `portquiz-server`, for example `-udp` to serve only UDP, or `-acme portquiz.example.com` to serve the [browser test](#browser-test) over HTTPS too (see [With SSL](#with-ssl-https)).
 - `PORTQUIZ_BIN`: path to `portquiz-server`. By default `/usr/local/bin/portquiz-server` is used if it exists, otherwise `/usr/bin/portquiz-server` from the package.
 
 The server's output is logged to `/var/log/portquiz.log`. Stopping the service removes the iptables rules the server added.
@@ -313,7 +315,43 @@ Ports that time out are retried once by default, since packets can be lost. The 
 
 ## Browser Test
 
-The server also serves a test page: open `http://<server>/` in any browser, on any port, and press Start. It needs nothing installed, so it works on phones, including iPhones, and on computers where you cannot install the client. Use `-web=false` on the server to turn it off; the client and the Android app do not need it.
+The server also serves a test page for checking ports from a browser. It needs nothing installed, so it works on phones, including iPhones, and on computers where you cannot install the client. It can be used without SSL, with nothing to set up, or with SSL, given a DNS name for the server. Use `-web=false` on the server to turn it off; the client and the Android app do not need it.
+
+### Without SSL (HTTP)
+
+Nothing to set up: open `http://<server>/` in a browser, by name or IP address, and press Start. Any port works, such as `http://<server>:8080/`, since the server answers on every port. TCP ports are then tested with plain web requests.
+
+Some browsers warn before opening a plain `http://` page, or refuse to when set to always use HTTPS; allow it for the server, or use HTTPS.
+
+### With SSL (HTTPS)
+
+The server can get a certificate from Let's Encrypt for its DNS name, renew it, and serve the page at `https://<name>/` as well, with plain HTTP still working. It needs:
+
+- **A DNS name** for the server. Certificates are requested for names, and a browser asks for one by name, so a server reached only by IP address stays on HTTP.
+- **DNS records that point at the server's `-listen` addresses.** The name's A record must be one of them. If the name also has an AAAA (IPv6) record, that address must be listened on too, since Let's Encrypt checks over IPv6 when it can.
+- **The server reachable from the internet on port 80 or 443**, which Let's Encrypt connects to for its check. The server answers on every port, so this is already the case unless a firewall or router in front of it blocks those ports.
+
+To set it up:
+
+1. Start the server with `-acme <name>`, or on Alpine add it to `PORTQUIZ_OPTS` in `/etc/conf.d/portquiz` and restart the service:
+
+   ```shell
+   ./portquiz-server -listen 192.0.2.123 -acme portquiz.example.com
+   ```
+
+   ```shell
+   # /etc/conf.d/portquiz
+   PORTQUIZ_OPTS="-acme portquiz.example.com"
+   ```
+
+2. Within a few seconds the log, `/var/log/portquiz.log` for the service, shows `certificate for portquiz.example.com ready, serving https://portquiz.example.com/`. If it shows `getting a certificate for ...` with an error instead, see [Troubleshooting](#troubleshooting).
+3. Open `https://<name>/` and press Start.
+
+The certificate and the Let's Encrypt account are kept in `-acme-cache`, `/var/lib/portquiz/acme` by default, and the certificate is renewed while the server runs. `-acme-email` is optional, for Let's Encrypt's notices. Several names can be given, separated by commas. To try the setup without counting against Let's Encrypt's limits, add `-acme-directory https://acme-staging-v02.api.letsencrypt.org/directory`: it checks the same things, but browsers do not trust its certificates, so remove it, and delete `-acme-cache`, once it works.
+
+With a certificate, the server answers HTTPS on every port as well as plain HTTP and the client's password, telling them apart by how each connection starts, so the HTTPS page can test every port with encrypted requests while `http://` keeps working. The server never tells browsers to always use HTTPS for it, so the plain page stays usable. Each page links to the other.
+
+### What a browser can test
 
 A browser cannot open raw connections, so the page tests TCP ports with web requests and UDP ports with STUN requests, which browsers send for WebRTC to learn their public address. The server answers both on every port, alongside the client's password. That makes it a quick check rather than a full test:
 
@@ -321,18 +359,8 @@ A browser cannot open raw connections, so the page tests TCP ports with web requ
 - **UDP**: choose UDP next to TCP. A UDP port either answers or not: a closed port gives a browser no sign of why, so rejected and dropped show alike as no answer. Browsers only allow a page a few hundred WebRTC connections, so the page reuses 32 of them, each pointed at one port after another, and a full UDP test of a network that drops most UDP takes a while. If no UDP port answers at all, either the network blocks UDP to the server, or the browser hides WebRTC answers, as some privacy settings and extensions do.
 - **Web traffic**: it shows whether web requests on a port reach the server. A filter that inspects traffic may treat them differently from other traffic, and a proxy that passes web requests through makes a port look open.
 - **Closed ports**: rejected, dropped and interfered are told apart as well as a browser allows: a refused connection and an answer that is not the server's both fail the same way, so a second request checks whether anything answered.
-- **HTTP or HTTPS**: a page opened over `http://` tests TCP ports with plain web requests. A page opened over `https://` may only make HTTPS requests, so it tests TCP ports with encrypted requests instead; see [HTTPS](#https) for setting that up. Each version links to the other.
+- **HTTP or HTTPS**: a page opened over `http://` tests TCP ports with plain web requests. A page opened over `https://` may only make HTTPS requests, so it tests TCP ports with encrypted requests instead. The HTTPS page tests something slightly different: whether encrypted web traffic gets through on each port. A proxy that steps into plain web requests cannot step into encrypted ones, so ports it would interfere with look open, and a network that intercepts encrypted traffic shows ports as rejected rather than interfered, unless the device trusts it. HTTPS requests also take one more round trip than plain ones. UDP is tested the same way from both.
 - **Speed**: browsers limit how many connections a page opens, so it tests 128 TCP and 32 UDP ports at once by default, sharing the 500 connections per second limit, and they slow down background tabs, so keep the tab open.
-
-### HTTPS
-
-With a DNS name for the server, `-acme portquiz.example.com` gets a certificate for it from Let's Encrypt, renews it, and then serves `https://portquiz.example.com/` too. The server then answers HTTPS on every port as well as plain HTTP and the client's password, telling them apart by how each connection starts, so the HTTPS page can test every port with encrypted requests while `http://` keeps working. Let's Encrypt checks the server answers for the name on port 80 or 443, which every port does, so nothing else needs opening. Certificates are kept in `-acme-cache`, `/var/lib/portquiz/acme` by default; `-acme-email` is optional, for Let's Encrypt's notices. To try it without counting against Let's Encrypt's limits, add `-acme-directory https://acme-staging-v02.api.letsencrypt.org/directory`, whose certificates browsers do not trust.
-
-```shell
-./portquiz-server -listen 192.0.2.123 -acme portquiz.example.com
-```
-
-The HTTPS page tests something slightly different: whether encrypted web traffic gets through on each port. A proxy that steps into plain web requests cannot step into encrypted ones, so ports it would interfere with look open, and a network that intercepts encrypted traffic shows ports as rejected rather than interfered, unless the device trusts it. HTTPS requests also take one more round trip than plain ones. UDP is tested the same way from both.
 
 The summary at the end matches the Android app's, and Save JSON saves the results in the same format as the client's [JSON report](#json-report), with `"client": "browser"`, `"tcp_requests"` saying whether TCP was tested with `http` or `https` requests, a `browser` status and a `browser_blocked` count for the ports the browser refused, and how they were detected in `browser_blocked_detection`.
 
@@ -356,6 +384,22 @@ The summary at the end matches the Android app's, and Save JSON saves the result
 - Verify you have root privileges
 - Check that iptables is installed and available
 - Ensure the listening IP is correctly configured on the system
+
+**The browser test page does not load:**
+
+- Use `http://`, not `https://`, unless the server was started with `-acme` (see [Browser Test](#browser-test))
+- Check the server was not started with `-web=false`
+- If the browser refuses plain `http://` pages, allow it for the server or set up [HTTPS](#with-ssl-https)
+
+**No HTTPS certificate:**
+
+The log shows `getting a certificate for <name>:` and Let's Encrypt's reason. The usual causes:
+
+- The name's A or AAAA record points somewhere other than the server's `-listen` addresses; check both with `dig A <name>` and `dig AAAA <name>`
+- Ports 80 and 443 are blocked before reaching the server, by a cloud firewall or a router that does not forward them
+- Too many attempts: Let's Encrypt limits failed checks and certificates per name, so test with the staging server first (see [With SSL](#with-ssl-https)) and wait an hour after repeated failures
+
+The server keeps serving plain HTTP meanwhile, and tries again on the next HTTPS visit or restart.
 
 **Performance is slow:**
 
