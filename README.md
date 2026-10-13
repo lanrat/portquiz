@@ -351,6 +351,8 @@ The certificate and the Let's Encrypt account are kept in `-acme-cache`, `/var/l
 
 With a certificate, the server answers HTTPS on every port as well as plain HTTP and the client's password, telling them apart by how each connection starts, so the HTTPS page can test every port with encrypted requests while `http://` keeps working. The server never tells browsers to always use HTTPS for it, so the plain page stays usable. Each page links to the other.
 
+Once the server has a certificate, browsers such as Chrome try HTTPS first even for `http://` links, so `http://<name>/` opens the HTTPS page. To open the plain page, use `http://<name>/?http`, as the HTTPS page's link does: the server sends that address straight back to HTTP when it arrives over HTTPS, which browsers take as the sign to fall back to HTTP. Browsers never upgrade a bare IP address, so `http://<ip>/` always opens the plain page too.
+
 ### What a browser can test
 
 A browser cannot open raw connections, so the page tests TCP ports with web requests and UDP ports with STUN requests, which browsers send for WebRTC to learn their public address. The server answers both on every port, alongside the client's password. That makes it a quick check rather than a full test:

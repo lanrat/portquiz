@@ -136,7 +136,23 @@ func webHandler() http.Handler {
 		// plain HTTP request to port 80, which arrives here
 		h = acmeManager.HTTPHandler(mux)
 	}
-	return securityHeaders(h)
+	return securityHeaders(keepHTTP(h))
+}
+
+// keepHTTP sends HTTPS requests for the plain page, marked with ?http, back
+// to HTTP. Browsers now try HTTPS first for http:// links, and the server
+// has a certificate, so the HTTPS page's link to the plain one would land on
+// HTTPS again; a redirect straight back to the same http:// address is the
+// sign browsers take to fall back to HTTP.
+func keepHTTP(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.TLS != nil && r.URL.Path == "/" && r.URL.Query().Has("http") {
+			w.Header().Set("Cache-Control", "no-store")
+			http.Redirect(w, r, "http://"+r.Host+r.URL.RequestURI(), http.StatusFound)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 // securityHeaders adds headers that keep the page to its own scripts. It

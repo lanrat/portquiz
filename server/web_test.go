@@ -318,3 +318,32 @@ func TestCertHelloAsksForECDSA(t *testing.T) {
 		t.Errorf("hello %+v", h)
 	}
 }
+
+func TestHTTPSLinkToPlainPageStaysHTTP(t *testing.T) {
+	addr := startServer(t)
+	client := httpsClient(addr)
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	res, err := client.Get("https://portquiz.test/?http")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusFound || res.Header.Get("Location") != "http://portquiz.test/?http" {
+		t.Errorf("HTTPS ?http: %d to %q, want a redirect to http://portquiz.test/?http", res.StatusCode, res.Header.Get("Location"))
+	}
+	// other HTTPS requests are served as usual
+	for _, url := range []string{"https://portquiz.test/", "https://portquiz.test/probe?http"} {
+		res, err := client.Get(url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = res.Body.Close()
+		if res.StatusCode != 200 {
+			t.Errorf("%s: %d", url, res.StatusCode)
+		}
+	}
+	// and over HTTP, the marked page is the page, not a loop
+	if res, body := get(t, "http://"+addr+"/?http"); res.StatusCode != 200 || !strings.Contains(body, "<title>") {
+		t.Errorf("HTTP ?http: %d", res.StatusCode)
+	}
+}

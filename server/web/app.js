@@ -71,7 +71,9 @@ async function init() {
   if (info.https && scheme === 'http') {
     $('other').replaceChildren('There is also ', el('a', 'an HTTPS version', { href: `https://${info.https}/` }), ' that tests with encrypted requests.');
   } else if (scheme === 'https') {
-    $('other').replaceChildren('There is also ', el('a', 'a plain HTTP version', { href: `http://${host}/` }), ' that tests with unencrypted requests.');
+    // ?http has the server send browsers that upgrade the link to HTTPS
+    // back to HTTP, see keepHTTP in web.go
+    $('other').replaceChildren('There is also ', el('a', 'a plain HTTP version', { href: `http://${host}/?http` }), ' that tests with unencrypted requests.');
   }
   $('version').textContent = info.version;
   const udpUnavailable = !info.udp
