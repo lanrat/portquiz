@@ -10,7 +10,10 @@
 #PORTQUIZ_LISTEN="192.0.2.123,2001:db8::123"
 
 # Extra arguments for portquiz-server, see "portquiz-server -h".
-# By default the server answers on both TCP and UDP.
+# By default the server answers on both TCP and UDP. To serve the browser
+# test page over HTTPS too, with a certificate from Let's Encrypt for the
+# server's DNS name, kept in /var/lib/portquiz/acme:
+#PORTQUIZ_OPTS="-acme portquiz.example.com"
 #PORTQUIZ_OPTS=""
 
 # Path to portquiz-server. By default /usr/local/bin/portquiz-server is used

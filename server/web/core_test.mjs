@@ -208,8 +208,10 @@ test('buildReport matches the command line client format', () => {
     canceled: true,
     options: { timeout: 2000, adaptive: true, parallel: 128, rate: 500 },
     detection: 'runtime',
+    scheme: 'https',
   });
   assert.equal(rep.client, 'browser');
+  assert.equal(rep.tcp_requests, 'https');
   assert.equal(rep.tested_per_second, 1.5);
   assert.equal(rep.options.ports, '1-3');
   assert.ok(rep.options.tcp && rep.options.udp);

@@ -63,8 +63,8 @@ func tcpServer(ctx context.Context, listenAddr string) error {
 
 // handleTCPConnection processes a single TCP connection.
 // It reads data from the connection, checks for the magic string, and responds accordingly.
-// HTTP requests, from the browser test page, are handed to the web server
-// if web is set.
+// HTTP requests and, with -acme, TLS connections, from the browser test
+// page, are handed to the web server if web is set.
 func handleTCPConnection(c *net.TCPConn, web bool) {
 	kind := "TCP"
 	handedOff := false
@@ -125,5 +125,13 @@ func handleTCPConnection(c *net.TCPConn, web bool) {
 		}
 		handedOff = true
 		serveHTTP(c, buffer[:n])
+		return
+	}
+	if web && webTLS != nil && isTLS(buffer[:n]) {
+		if *verbose {
+			log.Printf("[%s] TLS from %s", kind, c.RemoteAddr())
+		}
+		handedOff = true
+		serveTLS(c, buffer[:n])
 	}
 }

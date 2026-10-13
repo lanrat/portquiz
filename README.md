@@ -70,6 +70,14 @@ make
 ```shell
 $ ./portquiz-server -h
 Usage of ./portquiz-server:
+  -acme string
+        comma separated DNS names of this server to get Let's Encrypt certificates for, to serve the browser test page over HTTPS too
+  -acme-cache string
+        directory to keep the certificates and Let's Encrypt account in (default "/var/lib/portquiz/acme")
+  -acme-directory string
+        ACME directory URL, such as Let's Encrypt's staging server for testing (default "https://acme-v02.api.letsencrypt.org/directory")
+  -acme-email string
+        email address for Let's Encrypt notices about the certificates (optional)
   -listen string
         comma separated list of non-loopback IPs to listen on (required)
   -no-iptables
@@ -313,10 +321,20 @@ A browser cannot open raw connections, so the page tests TCP ports with web requ
 - **UDP**: choose UDP next to TCP. A UDP port either answers or not: a closed port gives a browser no sign of why, so rejected and dropped show alike as no answer. Browsers only allow a page a few hundred WebRTC connections, so the page reuses 32 of them, each pointed at one port after another, and a full UDP test of a network that drops most UDP takes a while. If no UDP port answers at all, either the network blocks UDP to the server, or the browser hides WebRTC answers, as some privacy settings and extensions do.
 - **Web traffic**: it shows whether web requests on a port reach the server. A filter that inspects traffic may treat them differently from other traffic, and a proxy that passes web requests through makes a port look open.
 - **Closed ports**: rejected, dropped and interfered are told apart as well as a browser allows: a refused connection and an answer that is not the server's both fail the same way, so a second request checks whether anything answered.
-- **Plain HTTP**: the page must be opened over `http://`, since a secure page cannot make plain requests, and browsers set to always upgrade to HTTPS need an exception for the server.
+- **HTTP or HTTPS**: a page opened over `http://` tests TCP ports with plain web requests. A page opened over `https://` may only make HTTPS requests, so it tests TCP ports with encrypted requests instead; see [HTTPS](#https) for setting that up. Each version links to the other.
 - **Speed**: browsers limit how many connections a page opens, so it tests 128 TCP and 32 UDP ports at once by default, sharing the 500 connections per second limit, and they slow down background tabs, so keep the tab open.
 
-The summary at the end matches the Android app's, and Save JSON saves the results in the same format as the client's [JSON report](#json-report), with `"client": "browser"`, a `browser` status and a `browser_blocked` count for the ports the browser refused, and how they were detected in `browser_blocked_detection`.
+### HTTPS
+
+With a DNS name for the server, `-acme portquiz.example.com` gets a certificate for it from Let's Encrypt, renews it, and then serves `https://portquiz.example.com/` too. The server then answers HTTPS on every port as well as plain HTTP and the client's password, telling them apart by how each connection starts, so the HTTPS page can test every port with encrypted requests while `http://` keeps working. Let's Encrypt checks the server answers for the name on port 80 or 443, which every port does, so nothing else needs opening. Certificates are kept in `-acme-cache`, `/var/lib/portquiz/acme` by default; `-acme-email` is optional, for Let's Encrypt's notices. To try it without counting against Let's Encrypt's limits, add `-acme-directory https://acme-staging-v02.api.letsencrypt.org/directory`, whose certificates browsers do not trust.
+
+```shell
+./portquiz-server -listen 192.0.2.123 -acme portquiz.example.com
+```
+
+The HTTPS page tests something slightly different: whether encrypted web traffic gets through on each port. A proxy that steps into plain web requests cannot step into encrypted ones, so ports it would interfere with look open, and a network that intercepts encrypted traffic shows ports as rejected rather than interfered, unless the device trusts it. HTTPS requests also take one more round trip than plain ones. UDP is tested the same way from both.
+
+The summary at the end matches the Android app's, and Save JSON saves the results in the same format as the client's [JSON report](#json-report), with `"client": "browser"`, `"tcp_requests"` saying whether TCP was tested with `http` or `https` requests, a `browser` status and a `browser_blocked` count for the ports the browser refused, and how they were detected in `browser_blocked_detection`.
 
 ## How It Works
 

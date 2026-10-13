@@ -12,7 +12,10 @@ const percent = new Intl.NumberFormat(undefined, { style: 'percent', maximumFrac
 // the server's name or address as the page was loaded, with brackets around
 // an IPv6 address, so it can go straight into URLs
 const host = location.hostname;
-const pagePort = Number(location.port) || 80;
+// TCP ports are tested over HTTPS from a page loaded over HTTPS, since such
+// a page may not make plain HTTP requests, and over HTTP otherwise
+const scheme = location.protocol === 'https:' ? 'https' : 'http';
+const pagePort = Number(location.port) || (scheme === 'https' ? 443 : 80);
 // documentation addresses that never answer, see core.blockedCheck
 const testAddress = host.includes(':') ? '[2001:db8::1]' : '192.0.2.1';
 const holdLimit = 1000;
@@ -62,6 +65,14 @@ async function init() {
     return;
   }
   $('server').textContent = host;
+  $('mode').textContent = scheme === 'https'
+    ? 'TCP ports are tested with encrypted (HTTPS) requests.'
+    : 'TCP ports are tested with plain web (HTTP) requests.';
+  if (info.https && scheme === 'http') {
+    $('other').replaceChildren('There is also ', el('a', 'an HTTPS version', { href: `https://${info.https}/` }), ' that tests with encrypted requests.');
+  } else if (scheme === 'https') {
+    $('other').replaceChildren('There is also ', el('a', 'a plain HTTP version', { href: `http://${host}/` }), ' that tests with unencrypted requests.');
+  }
   $('version').textContent = info.version;
   const udpUnavailable = !info.udp
     ? 'This server does not answer UDP.'
@@ -212,17 +223,17 @@ function network(s) {
     request: async (port, timeout) => {
       if (s.stopped) return { type: 'aborted' };
       await pace(s);
-      return timed(s, `http://${host}:${port}/probe?n=${s.nonce}`, 'cors', timeout);
+      return timed(s, `${scheme}://${host}:${port}/probe?n=${s.nonce}`, 'cors', timeout);
     },
     browserBlocks: async (port) => {
       if (s.stopped) return false;
       if (s.detection.threshold === null) return core.STANDARD_BLOCKED.has(port);
-      const r = await timed(s, `http://${testAddress}:${port}/`, 'no-cors', s.detection.threshold);
+      const r = await timed(s, `${scheme}://${testAddress}:${port}/`, 'no-cors', s.detection.threshold);
       return r.type === 'failed';
     },
     answers: async (port) => {
       if (s.stopped) return false;
-      const r = await timed(s, `http://${host}:${port}/probe?n=${s.nonce}&opaque`, 'no-cors', s.kinds[0].estimator.max);
+      const r = await timed(s, `${scheme}://${host}:${port}/probe?n=${s.nonce}&opaque`, 'no-cors', s.kinds[0].estimator.max);
       return r.type === 'response';
     },
   };
@@ -333,12 +344,12 @@ async function pace(s) {
 // detectBlocked works out how to tell which ports the browser refuses, see
 // core.blockedCheck.
 async function detectBlocked(s) {
-  const hold = await timed(s, `http://${testAddress}:${pagePort}/`, 'no-cors', holdLimit);
+  const hold = await timed(s, `${scheme}://${testAddress}:${pagePort}/`, 'no-cors', holdLimit);
   const holdMs = hold.type === 'failed' ? hold.ms : holdLimit;
   const blockedMs = [];
   for (const p of [1, 7, 9]) {
     if (s.stopped) break;
-    const r = await timed(s, `http://${testAddress}:${p}/`, 'no-cors', holdLimit);
+    const r = await timed(s, `${scheme}://${testAddress}:${p}/`, 'no-cors', holdLimit);
     if (r.type === 'failed') blockedMs.push(r.ms);
   }
   return core.blockedCheck(holdMs, holdLimit, blockedMs);
@@ -406,7 +417,7 @@ function renderSummary(s) {
   const seconds = (s.finished - s.started) / 1000;
   const total = done(s);
   const server = host.replace(/^\[|\]$/g, '') === info.server ? host : `${host} (${info.server})`;
-  out.push(el('p', `${server} from ${info.client} · tested ${numbers.format(total)} in ${core.formatDuration(seconds * 1000)}`));
+  out.push(el('p', `${server} from ${info.client} · tested ${numbers.format(total)} in ${core.formatDuration(seconds * 1000)}${s.kinds.some((k) => k.kind === 'tcp') ? ` · TCP over ${scheme.toUpperCase()}` : ''}`));
   if (s.canceled) out.push(el('p', `Stopped early: ${numbers.format(s.total - total)} not tested.`, { className: 'warning' }));
 
   for (const k of s.kinds) {
@@ -601,6 +612,7 @@ function save() {
     canceled: s.canceled,
     options: s.options,
     detection: s.detection.threshold !== null ? 'runtime' : `standard list: ${s.detection.reason}`,
+    scheme,
   });
   const blob = new Blob([JSON.stringify(report, null, 2) + '\n'], { type: 'application/json' });
   const stamp = new Date(s.started).toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-');

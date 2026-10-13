@@ -8,6 +8,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/tls"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
@@ -59,6 +60,14 @@ func serveHTTP(c net.Conn, first []byte) {
 	webListener.conns <- &prefixConn{Conn: c, r: io.MultiReader(bytes.NewReader(first), c)}
 }
 
+// serveTLS hands a TLS connection whose first bytes, already read, are
+// first to the web server, which then owns it and does the handshake.
+func serveTLS(c net.Conn, first []byte) {
+	webOnce.Do(startWebServer)
+	_ = c.SetDeadline(time.Time{})
+	webListener.conns <- tls.Server(&prefixConn{Conn: c, r: io.MultiReader(bytes.NewReader(first), c)}, webTLS)
+}
+
 // startWebServer starts the HTTP server that handles connections passed to
 // serveHTTP.
 func startWebServer() {
@@ -73,6 +82,10 @@ func startWebServer() {
 		IdleTimeout:    2 * time.Minute,
 		MaxHeaderBytes: 8 << 10,
 		ErrorLog:       log.New(io.Discard, "", 0),
+	}
+	if *verbose {
+		// TLS handshake failures and the like
+		srv.ErrorLog = log.Default()
 	}
 	go func() { _ = srv.Serve(webListener) }()
 }
@@ -108,6 +121,8 @@ func webHandler() http.Handler {
 			"server":  server,
 			"tcp":     *tcp,
 			"udp":     *udp,
+			// the name of the HTTPS page, if there is one
+			"https": httpsHost,
 		})
 	})
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +130,13 @@ func webHandler() http.Handler {
 		files.ServeHTTP(w, r)
 	})
 	mux.Handle("GET /{file}", files)
-	return securityHeaders(mux)
+	var h http.Handler = mux
+	if acmeManager != nil {
+		// Let's Encrypt checks the server answers for each name with a
+		// plain HTTP request to port 80, which arrives here
+		h = acmeManager.HTTPHandler(mux)
+	}
+	return securityHeaders(h)
 }
 
 // securityHeaders adds headers that keep the page to its own scripts. It

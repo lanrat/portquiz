@@ -359,7 +359,7 @@ export function rttStats(rtts) {
 // buildReport returns the scan's report in the command line client's -json
 // format, with the browser's additions: "client" and "browser_blocked".
 // kinds are the kinds tested, each {kind, results, estimator, retries}.
-export function buildReport({ info, host, ports, kinds, started, finished, canceled, options, detection }) {
+export function buildReport({ info, host, ports, kinds, started, finished, canceled, options, detection, scheme = 'http' }) {
   const seconds = (finished - started) / 1000;
   const done = kinds.reduce((sum, k) => sum + k.results.done, 0);
   return {
@@ -385,6 +385,8 @@ export function buildReport({ info, host, ports, kinds, started, finished, cance
       multi: 1,
     },
     browser_blocked_detection: detection,
+    // how TCP ports were tested: "http" or "https" requests
+    tcp_requests: scheme,
     kinds: kinds.map(({ kind, results, estimator, retries }) => {
       const n = (s) => results.count(s);
       return {

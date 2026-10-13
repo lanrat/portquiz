@@ -63,6 +63,10 @@ func main() {
 		log.Fatal(errors.New("must set -listen"))
 	}
 
+	if err := setupACME(); err != nil {
+		log.Fatal(err)
+	}
+
 	g, ctx = errgroup.WithContext(context.Background())
 
 	// setup fw cleanup if killed
