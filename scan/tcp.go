@@ -3,11 +3,9 @@ package scan
 import (
 	"bytes"
 	"context"
-	"errors"
 	"net"
 	"os"
 	"strconv"
-	"syscall"
 	"time"
 )
 
@@ -23,12 +21,12 @@ func (t *target) checkTCP(ctx context.Context, port int, timeout time.Duration) 
 	if err != nil {
 		t.opts.logf("%s %d dial error: %s", t.kind, port, err)
 		switch {
-		case errors.Is(err, syscall.ECONNREFUSED):
+		case refusal(err):
 			return outcomeRefused, 0
 		case os.IsTimeout(err):
 			return outcomeTimeout, 0
 		default:
-			return outcomeFailed, 0
+			return outcomeError, 0
 		}
 	}
 	connected := time.Now()
@@ -49,23 +47,29 @@ func (t *target) checkTCP(ctx context.Context, port int, timeout time.Duration) 
 		t.opts.logf("%s %d SetNoDelay warning: %s", t.kind, port, err)
 	}
 
+	// the connection was accepted, so from here on any failure means that
+	// something other than the server answered or cut the connection
 	if _, err := conn.Write(t.magic); err != nil {
 		t.opts.logf("%s %d write error: %s", t.kind, port, err)
-		return outcomeFailed, 0
+		return outcomeInterfered, 0
 	}
 
 	buffer := make([]byte, 128)
 	n, err := conn.Read(buffer)
 	if err != nil {
 		t.opts.logf("%s %d read error: %s", t.kind, port, err)
-		if os.IsTimeout(err) && ctx.Err() == nil {
-			return outcomeTimeout, 0
+		switch {
+		case ctx.Err() != nil:
+			return outcomeError, 0
+		case os.IsTimeout(err):
+			return outcomeSilent, 0
+		default:
+			return outcomeInterfered, 0
 		}
-		return outcomeFailed, 0
 	}
 	if !bytes.HasPrefix(buffer[:n], t.magic) {
 		t.opts.logf("%s %d unexpected reply: %q", t.kind, port, buffer[:n])
-		return outcomeFailed, 0
+		return outcomeInterfered, 0
 	}
 	return outcomeOpen, max(connected.Sub(start), time.Since(connected))
 }

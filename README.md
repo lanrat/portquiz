@@ -197,6 +197,8 @@ Usage of ./portquiz:
         print only closed ports
   -format string
         output format: "ranges" merges consecutive ports with the same result, "ports" prints one line per port (default "ranges")
+  -json file
+        when testing finishes, write a JSON report of every result to file, or to stdout with - instead of the usual results
   -multi uint
         test multiple times to ensure larger streams work (default 1)
   -no-progress
@@ -240,6 +242,48 @@ CLOSED tcp 82-65535
 ```
 
 Ranges for different protocols can be interleaved, as above. Ports listed with `-port` are only merged when they are consecutive, so `-port 22,80-81` prints `22` and `80-81` separately. Use `-open` or `-closed` to print only one kind of result, or `-format ports` to print one line per port instead of ranges.
+
+### How ports are closed
+
+A closed port is reported in one of four ways, shown in the summary at the end of a scan (`Tested 65535 in 3m10s: 120 open, 65415 closed (400 rejected, 65000 dropped, 15 interfered)`) and in the JSON report:
+
+- **rejected**: the connection was actively refused, by a TCP reset, an ICMP unreachable or a local firewall. Firewalls set to reject traffic, and the server's own firewall, do this.
+- **dropped**: nothing came back before the timeout, as when a firewall silently discards traffic. These ports are the slow ones to test.
+- **interfered**: something other than the portquiz server answered, or the connection was accepted and then cut or left silent. A transparent proxy, captive portal or filter on the path does this, often on ports such as 25, 53 or 80.
+- **errors**: the port could not be tested because of a local error, such as running out of sockets.
+
+### JSON report
+
+`-json report.json` writes a report of the whole scan when it finishes, or when it is stopped with Ctrl-C, while the usual results still go to stdout. `-json -` writes the report to stdout instead of the usual results. For each kind tested (`tcp`, `udp6` etc.) it gives the address tested, how many ports had each result, how quickly open ports answered, the timeout in use at the end, and every result as ranges of consecutive ports with the same status:
+
+```json
+{
+  "version": "v1.6.0",
+  "host": "portquiz.example.com",
+  "started": "2026-10-13T09:00:00.000-07:00",
+  "finished": "2026-10-13T09:03:10.000-07:00",
+  "duration_seconds": 190,
+  "tested_per_second": 344.9,
+  "canceled": false,
+  "options": { "ports": "1-65535", "tcp": true, "udp": false, "ipv4": false, "ipv6": false, "timeout_ms": 2000, "adaptive": true, "retries": -1, "parallel": 500, "rate": 500, "multi": 1 },
+  "kinds": [
+    {
+      "kind": "tcp",
+      "address": "192.0.2.1",
+      "tested": 65535, "untested": 0,
+      "open": 120, "rejected": 400, "dropped": 65000, "interfered": 15, "errors": 0,
+      "late": 0, "retries": 1, "timeout_ms": 250,
+      "open_rtt_ms": { "min": 21.3, "median": 24.8, "p95": 40.2, "max": 95.0 },
+      "ranges": [
+        { "first": 1, "last": 21, "status": "dropped" },
+        { "first": 22, "last": 22, "status": "open" }
+      ]
+    }
+  ]
+}
+```
+
+`untested` counts the ports left when a scan is stopped early, `late` the open ports found only by a recheck with the full timeout (see below), and `options.retries` is -1 for the default.
 
 ### Timeouts
 

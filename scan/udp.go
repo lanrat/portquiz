@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"syscall"
 	"time"
 )
 
@@ -21,7 +20,7 @@ func (t *target) checkUDP(ctx context.Context, port int, timeout time.Duration) 
 	conn, err := dialUDP(network, &net.UDPAddr{IP: addr.IP, Port: port, Zone: addr.Zone})
 	if err != nil {
 		t.opts.logf("%s %d dial error: %s", network, port, err)
-		return outcomeFailed, 0
+		return outcomeError, 0
 	}
 	defer func() { _ = conn.Close() }()
 	// unblock a pending read as soon as the context is canceled
@@ -33,19 +32,27 @@ func (t *target) checkUDP(ctx context.Context, port int, timeout time.Duration) 
 		t.opts.logf("%s %d SetDeadline warning: %s", network, port, err)
 	}
 	if _, err := conn.Write(t.magic); err != nil {
-		return outcomeFailed, 0
+		t.opts.logf("%s %d write error: %s", network, port, err)
+		if refusal(err) {
+			return outcomeRefused, 0
+		}
+		return outcomeError, 0
 	}
 	buffer := make([]byte, 2048)
 	n, err := conn.Read(buffer)
 	switch {
-	case errors.Is(err, syscall.ECONNREFUSED):
+	case err != nil && ctx.Err() != nil:
+		return outcomeError, 0
+	case refusal(err):
 		return outcomeRefused, 0
-	case err != nil && ctx.Err() == nil && errors.Is(err, os.ErrDeadlineExceeded):
+	case errors.Is(err, os.ErrDeadlineExceeded):
 		return outcomeTimeout, 0
 	case err != nil:
-		return outcomeFailed, 0
+		t.opts.logf("%s %d read error: %s", network, port, err)
+		return outcomeError, 0
 	case !bytes.HasPrefix(buffer[:n], t.magic):
-		return outcomeFailed, 0
+		t.opts.logf("%s %d unexpected reply: %q", network, port, buffer[:n])
+		return outcomeInterfered, 0
 	}
 	return outcomeOpen, time.Since(start)
 }

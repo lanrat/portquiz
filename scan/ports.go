@@ -67,3 +67,25 @@ func parsePort(s string) (int, error) {
 	}
 	return p, nil
 }
+
+// formatPorts formats sorted ports as a list of ports and ranges, the
+// reverse of ParsePorts: "1-1024,8080".
+func formatPorts(ports []int) string {
+	var b strings.Builder
+	for i := 0; i < len(ports); {
+		j := i
+		for j+1 < len(ports) && ports[j+1] == ports[j]+1 {
+			j++
+		}
+		if b.Len() > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(strconv.Itoa(ports[i]))
+		if j > i {
+			b.WriteByte('-')
+			b.WriteString(strconv.Itoa(ports[j]))
+		}
+		i = j + 1
+	}
+	return b.String()
+}

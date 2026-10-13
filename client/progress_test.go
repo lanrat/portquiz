@@ -4,6 +4,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"portquiz/scan"
 )
 
 func TestFormatETA(t *testing.T) {
@@ -42,5 +44,15 @@ func TestTestingLine(t *testing.T) {
 		if got := testingLine(c.host, c.addrs); got != c.want {
 			t.Errorf("testingLine(%q) = %q, want %q", c.host, got, c.want)
 		}
+	}
+}
+
+func TestClosedDetail(t *testing.T) {
+	if got := closedDetail(nil); got != "" {
+		t.Errorf("no closed ports: got %q", got)
+	}
+	got := closedDetail(map[scan.Status]int{scan.StatusError: 1, scan.StatusDropped: 1200, scan.StatusInterfered: 3})
+	if want := " (1200 dropped, 3 interfered, 1 errors)"; got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }

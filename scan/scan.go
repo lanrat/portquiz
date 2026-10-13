@@ -92,8 +92,38 @@ func DefaultOptions() Options {
 type Result struct {
 	Kind string // protocol and IP version: "tcp", "udp", "tcp4", "udp6" etc.
 	Port int
-	Open bool
+	Open bool // whether Status is StatusOpen
+
+	// Status is the port's result, and for a closed port how it was closed.
+	Status Status
+	// RTT is how long an open port took to answer.
+	RTT time.Duration
+	// Late is set for an open port that only answered when rechecked with
+	// the full timeout, after timing out with the adaptive timeout.
+	Late bool
 }
+
+// Status is the result for one port.
+type Status string
+
+const (
+	// StatusOpen means the portquiz server answered.
+	StatusOpen Status = "open"
+	// StatusRejected means the connection was actively refused: a TCP reset,
+	// an ICMP unreachable, or a local firewall. Firewalls set to reject
+	// traffic, and the server's own firewall, do this.
+	StatusRejected Status = "rejected"
+	// StatusDropped means nothing came back before the timeout, as when a
+	// firewall silently discards traffic.
+	StatusDropped Status = "dropped"
+	// StatusInterfered means something answered that was not the portquiz
+	// server, or the connection was accepted and then cut or left silent, as
+	// a transparent proxy, captive portal or filter on the path does.
+	StatusInterfered Status = "interfered"
+	// StatusError means the port could not be tested because of a local
+	// error, such as running out of sockets.
+	StatusError Status = "error"
+)
 
 // Scan is a running scan.
 type Scan struct {
@@ -255,7 +285,8 @@ func (s *Scan) run(ctx context.Context) {
 					once.Do(func() { s.err = err })
 					return err
 				}
-				r := Result{Kind: j.kind, Port: j.port, Open: t.test(ctx, j.port)}
+				status, rtt, late := t.test(ctx, j.port)
+				r := Result{Kind: j.kind, Port: j.port, Open: status == StatusOpen, Status: status, RTT: rtt, Late: late}
 				if ctx.Err() != nil {
 					// the result of a canceled test is not meaningful
 					return nil

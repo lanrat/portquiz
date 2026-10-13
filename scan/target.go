@@ -2,10 +2,12 @@ package scan
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -15,11 +17,43 @@ import (
 type outcome int
 
 const (
-	outcomeOpen    outcome = iota // the server replied with the magic string
-	outcomeRefused                // the connection was refused or the port was unreachable
-	outcomeTimeout                // there was no response before the timeout
-	outcomeFailed                 // any other error, or an unexpected reply
+	outcomeOpen       outcome = iota // the server replied with the magic string
+	outcomeRefused                   // the connection was refused, or a host or network unreachable came back
+	outcomeTimeout                   // there was no response before the timeout
+	outcomeSilent                    // a TCP connection was accepted, but nothing replied before the timeout
+	outcomeInterfered                // the connection was reset, or something other than the server replied
+	outcomeError                     // a local error, such as running out of sockets, or the scan was canceled
 )
+
+// status returns the Status reported for a port whose last check had this
+// outcome.
+func (o outcome) status() Status {
+	switch o {
+	case outcomeOpen:
+		return StatusOpen
+	case outcomeRefused:
+		return StatusRejected
+	case outcomeTimeout:
+		return StatusDropped
+	case outcomeSilent, outcomeInterfered:
+		return StatusInterfered
+	default:
+		return StatusError
+	}
+}
+
+// refusal reports whether a connection error means the traffic was actively
+// rejected: a TCP reset or ICMP port unreachable from the server or a
+// firewall, an ICMP host or network unreachable, which firewalls also send to
+// reject traffic, or a local firewall denying it.
+func refusal(err error) bool {
+	for _, e := range []error{syscall.ECONNREFUSED, syscall.EHOSTUNREACH, syscall.ENETUNREACH, syscall.EACCES, syscall.EPERM} {
+		if errors.Is(err, e) {
+			return true
+		}
+	}
+	return false
+}
 
 // target is everything needed to test ports of one kind.
 type target struct {
@@ -221,7 +255,7 @@ func (t *target) check(ctx context.Context, port int, full bool) (outcome, time.
 	var slowest time.Duration
 	for range t.opts.Multi {
 		if err := t.limiter.Wait(ctx); err != nil {
-			return outcomeFailed, 0
+			return outcomeError, 0
 		}
 		// read the timeout only now: waiting for the rate limiter can take a
 		// while, and the estimate may have improved in the meantime
@@ -244,25 +278,25 @@ func (t *target) check(ctx context.Context, port int, full bool) (outcome, time.
 	return outcomeOpen, slowest
 }
 
-// test runs every attempt for one port and reports whether it is open.
+// test runs every attempt for one port and returns its status, how long it
+// took to answer if it is open, and whether it only answered when rechecked.
 // Ports that did not respond are retried with the adaptive timeout. If the
 // port still timed out, a sample of such ports is rechecked with the full
 // timeout to catch an adaptive timeout that has become too short.
-func (t *target) test(ctx context.Context, port int) bool {
-	last := outcomeFailed
+func (t *target) test(ctx context.Context, port int) (status Status, rtt time.Duration, late bool) {
+	last := outcomeError
 	for attempt := 0; attempt <= t.retries(); attempt++ {
 		if ctx.Err() != nil {
-			return false
+			return StatusError, 0, false
 		}
-		var rtt time.Duration
 		last, rtt = t.check(ctx, port, false)
 		if last == outcomeOpen {
 			t.est.sample(rtt)
-			return true
+			return StatusOpen, rtt, false
 		}
 		if last == outcomeRefused {
 			// a refusal is definite, retrying will not change it
-			return false
+			return StatusRejected, 0, false
 		}
 	}
 	if last == outcomeTimeout && t.est.shouldRecheck() {
@@ -270,8 +304,8 @@ func (t *target) test(ctx context.Context, port int) bool {
 		if out == outcomeOpen {
 			t.est.missed(rtt)
 			t.opts.logf("%s %d only responded after %s, raising the adaptive timeout", t.kind, port, rtt)
-			return true
+			return StatusOpen, rtt, true
 		}
 	}
-	return false
+	return last.status(), 0, false
 }

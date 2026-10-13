@@ -22,12 +22,13 @@ const progressInterval = 200 * time.Millisecond
 // It is not safe for concurrent use; jobResults owns it.
 type progress struct {
 	out     *os.File
-	total   int       // Total number of checks to run
-	done    int       // Number of checks completed
-	open    int       // Number of checks that found an open port
-	start   time.Time // When testing started
-	lastLen int       // Length of the line currently on screen, 0 if none
-	eta     *scan.ETA // Estimates the time left
+	total   int                 // Total number of checks to run
+	done    int                 // Number of checks completed
+	open    int                 // Number of checks that found an open port
+	start   time.Time           // When testing started
+	lastLen int                 // Length of the line currently on screen, 0 if none
+	eta     *scan.ETA           // Estimates the time left
+	closed  map[scan.Status]int // Closed checks by how they were closed
 }
 
 // progressEnabled reports whether the progress line should be shown.
@@ -42,18 +43,21 @@ func progressEnabled() bool {
 func newProgress(total int) *progress {
 	now := time.Now()
 	return &progress{
-		out:   os.Stderr,
-		total: total,
-		start: now,
-		eta:   scan.NewETA(total, now),
+		out:    os.Stderr,
+		total:  total,
+		start:  now,
+		eta:    scan.NewETA(total, now),
+		closed: make(map[scan.Status]int),
 	}
 }
 
 // record counts a completed check.
-func (p *progress) record(open bool) {
+func (p *progress) record(r scan.Result) {
 	p.done++
-	if open {
+	if r.Open {
 		p.open++
+	} else {
+		p.closed[r.Status]++
 	}
 }
 
@@ -82,7 +86,26 @@ func (p *progress) draw() {
 func (p *progress) summary() {
 	p.clear()
 	elapsed := time.Since(p.start).Round(time.Second)
-	_, _ = fmt.Fprintf(p.out, "Tested %d in %s: %d open, %d closed\n", p.done, elapsed, p.open, p.done-p.open)
+	_, _ = fmt.Fprintf(p.out, "Tested %d in %s: %d open, %d closed%s\n", p.done, elapsed, p.open, p.done-p.open, closedDetail(p.closed))
+}
+
+// closedDetail describes how closed checks were closed, e.g.
+// " (1200 dropped, 3 interfered)", or returns "" if none were.
+func closedDetail(closed map[scan.Status]int) string {
+	var parts []string
+	for _, st := range []scan.Status{scan.StatusRejected, scan.StatusDropped, scan.StatusInterfered, scan.StatusError} {
+		if n := closed[st]; n > 0 {
+			name := string(st)
+			if st == scan.StatusError {
+				name = "errors"
+			}
+			parts = append(parts, fmt.Sprintf("%d %s", n, name))
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return " (" + strings.Join(parts, ", ") + ")"
 }
 
 // line builds the progress line, fitted to the given terminal width.

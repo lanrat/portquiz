@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -38,6 +39,7 @@ var (
 	magicString = flag.String("password", defaults.Password, "magicString to use, must be the same on client/server")
 	version     = flag.Bool("version", false, "show version information")
 	noProgress  = flag.Bool("no-progress", false, "disable the progress bar shown when stderr is a terminal")
+	jsonPath    = flag.String("json", "", "when testing finishes, write a JSON report of every result to `file`, or to stdout with - instead of the usual results")
 	format      = flag.String("format", formatRanges, "output format: \"ranges\" merges consecutive ports with the same result, \"ports\" prints one line per port")
 )
 
@@ -137,11 +139,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	printResults(ctx, s)
+	rec := scan.NewRecorder(s, time.Now())
+	printResults(ctx, s, rec)
 	if err := s.Wait(); err != nil {
 		log.Fatal(err)
 	}
 	warnMissed(s.Missed())
+	if *jsonPath != "" {
+		rep := rec.Report(time.Now(), ctx.Err() != nil)
+		rep.Version = Version
+		if err := writeReport(*jsonPath, rep); err != nil {
+			log.Fatal(err)
+		}
+	}
 	if ctx.Err() != nil {
 		fmt.Fprintln(os.Stderr, "interrupted")
 		os.Exit(130)
@@ -149,9 +159,10 @@ func main() {
 }
 
 // printResults prints the scan's results as they arrive, in the format
-// selected by -format and -open/-closed, and keeps the progress line up to
-// date when it is enabled.
-func printResults(ctx context.Context, s *scan.Scan) {
+// selected by -format and -open/-closed, records them in rec, and keeps the
+// progress line up to date when it is enabled. With -json - the results are
+// only recorded, so stdout holds just the report.
+func printResults(ctx context.Context, s *scan.Scan, rec *scan.Recorder) {
 	var p *progress
 	var tick <-chan time.Time
 	if progressEnabled() {
@@ -167,6 +178,9 @@ func printResults(ctx context.Context, s *scan.Scan) {
 	w := newPrinter(s.Ports(), func(line string) {
 		if p != nil {
 			p.clear()
+		}
+		if *jsonPath == "-" {
+			return
 		}
 		printed = true
 		fmt.Println(line)
@@ -190,8 +204,9 @@ func printResults(ctx context.Context, s *scan.Scan) {
 				}
 				return
 			}
+			rec.Add(r)
 			if p != nil {
-				p.record(r.Open)
+				p.record(r)
 			}
 			w.add(r)
 			// redraw once the current batch of results has been printed
@@ -203,6 +218,24 @@ func printResults(ctx context.Context, s *scan.Scan) {
 			}
 		}
 	}
+}
+
+// writeReport writes rep as indented JSON to the file at path, or to stdout
+// if path is "-".
+func writeReport(path string, rep *scan.Report) error {
+	data, err := json.MarshalIndent(rep, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	if path == "-" {
+		_, err = os.Stdout.Write(data)
+		return err
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("writing the JSON report: %w", err)
+	}
+	return nil
 }
 
 // warnMissed warns when rechecks found ports that the adaptive timeout had

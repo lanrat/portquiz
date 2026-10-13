@@ -68,7 +68,7 @@ func TestCheckUDP(t *testing.T) {
 	}{
 		{"open", startUDPServer(t, echo), outcomeOpen},
 		{"no reply", startUDPServer(t, func([]byte) []byte { return nil }), outcomeTimeout},
-		{"wrong reply", startUDPServer(t, func([]byte) []byte { return []byte("nope") }), outcomeFailed},
+		{"wrong reply", startUDPServer(t, func([]byte) []byte { return []byte("nope") }), outcomeInterfered},
 		{"refused", unusedUDPPort(t), outcomeRefused},
 	}
 	for _, tt := range tests {
