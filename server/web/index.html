@@ -18,6 +18,7 @@
 
     <p id="intro">Tests which ports this network lets your browser reach on <strong id="server">this server</strong>.</p>
     <p class="muted"><span id="mode"></span> <span id="other"></span></p>
+    <p>For a complete test, use the command line or Android client from the <a href="https://github.com/lanrat/portquiz/releases/latest" rel="noreferrer">releases page</a>. They aren't limited by the browser, so they're faster, especially for UDP, test every port, including ones browsers block such as 22 (SSH) and 25 (SMTP), and tell more precisely how each closed port was blocked.</p>
     <p id="error" class="warning" role="alert" hidden></p>
 
     <form id="form">
@@ -69,7 +70,7 @@
     </section>
 
     <footer class="muted">
-      <p>A browser can only test ports with web requests, so this is a quick check. It cannot test the TCP ports browsers refuse to use, such as 22 (SSH), 25 (SMTP) and 53 (DNS), it tests UDP more slowly, and it tells closed ports apart less precisely. For a full test, use the <a href="https://github.com/lanrat/portquiz/releases/latest" rel="noreferrer">command line client or the Android app</a>.</p>
+      <p>A browser can only test ports with web requests, so this is a quick check. It cannot test the TCP ports browsers refuse to use, such as 22 (SSH), 25 (SMTP) and 53 (DNS), it tests UDP more slowly, and it tells closed ports apart less precisely.</p>
     </footer>
   </main>
 </body>
