@@ -1,0 +1,278 @@
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb;
+  --surface-2: #f1f0ec;
+  --text: #0b0b0b;
+  --text-2: #52514e;
+  --border: #d9d8d3;
+  --accent: #2a78d6;
+  --on-accent: #ffffff;
+  --warning: #b3261e;
+  --open-text: #1b7f3a;
+  /* port map, checked as a set for colorblind-safe neighbors */
+  --map-open: #1baf7a;
+  --map-rejected: #eb6834;
+  --map-dropped: #2a78d6;
+  --map-interfered: #e87ba4;
+  --map-error: #eda100;
+  --map-browser: #a9a8a2;
+  --map-track: #e6e6e3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #1a1a19;
+    --surface-2: #252524;
+    --text: #f0efec;
+    --text-2: #c3c2b7;
+    --border: #3a3a38;
+    --accent: #6da7ec;
+    --on-accent: #0b0b0b;
+    --warning: #f2b8b5;
+    --open-text: #7bd88f;
+    --map-open: #199e70;
+    --map-rejected: #d95926;
+    --map-dropped: #3987e5;
+    --map-interfered: #d55181;
+    --map-error: #c98500;
+    --map-browser: #5c5b57;
+    --map-track: #2e2e2c;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 16px 48px;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+header a {
+  margin-left: auto;
+}
+
+a {
+  color: var(--accent);
+}
+
+h2 {
+  font-size: 17px;
+  margin: 24px 0 6px;
+}
+
+.muted {
+  color: var(--text-2);
+}
+
+.warning {
+  color: var(--warning);
+}
+
+label {
+  display: block;
+}
+
+input,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input:not([type="checkbox"], [type="radio"]) {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+button {
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+details {
+  margin-top: 10px;
+}
+
+summary {
+  cursor: pointer;
+  color: var(--text-2);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 16px;
+  margin-top: 8px;
+}
+
+label.check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+progress {
+  width: 100%;
+  height: 10px;
+  margin-top: 16px;
+  accent-color: var(--accent);
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.results-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 24px;
+}
+
+.results-head h2 {
+  margin: 0;
+}
+
+#filter {
+  display: flex;
+  gap: 12px;
+}
+
+#filter label {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+#save {
+  margin-left: auto;
+}
+
+#results {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text-2);
+}
+
+#results .open {
+  color: var(--open-text);
+  font-weight: 600;
+}
+
+#summary p,
+#summary li {
+  margin: 4px 0;
+}
+
+#summary ul {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.map {
+  display: block;
+  width: 100%;
+  height: 64px;
+  margin-top: 6px;
+  border-radius: 4px;
+  touch-action: pan-y;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.legend span::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  border-radius: 2px;
+  background: var(--swatch);
+}
+
+#inspect {
+  min-height: 1.5em;
+  color: var(--text-2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 2px 16px 2px 0;
+}
+
+td.open {
+  color: var(--open-text);
+  font-weight: 600;
+}
+
+footer {
+  margin-top: 40px;
+  font-size: 13px;
+}

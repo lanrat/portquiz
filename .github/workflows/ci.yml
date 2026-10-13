@@ -36,6 +36,12 @@ jobs:
       - name: Test
         run: go test -race ./...
 
+      # the browser test page, served by the server; Node comes with the runner
+      - name: Test web page
+        run: |
+          node --check server/web/app.js
+          node --test server/web/core_test.mjs
+
       - name: Build
         run: make
 

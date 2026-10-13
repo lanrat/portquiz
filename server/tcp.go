@@ -38,6 +38,7 @@ func tcpServer(ctx context.Context, listenAddr string) error {
 		}
 	}()
 
+	web := *webEnabled
 	for {
 		// Check for cancellation before potentially blocking call
 		select {
@@ -56,15 +57,21 @@ func tcpServer(ctx context.Context, listenAddr string) error {
 			}
 			return err
 		}
-		go handleTCPConnection(c)
+		go handleTCPConnection(c, web)
 	}
 }
 
 // handleTCPConnection processes a single TCP connection.
 // It reads data from the connection, checks for the magic string, and responds accordingly.
-func handleTCPConnection(c *net.TCPConn) {
+// HTTP requests, from the browser test page, are handed to the web server
+// if web is set.
+func handleTCPConnection(c *net.TCPConn, web bool) {
 	kind := "TCP"
+	handedOff := false
 	defer func() {
+		if handedOff {
+			return
+		}
 		if err := c.Close(); err != nil && *verbose {
 			log.Printf("TCP connection close error: %s", err)
 		}
@@ -110,5 +117,13 @@ func handleTCPConnection(c *net.TCPConn) {
 		// can make it ignore a new connection that reuses that source port,
 		// costing the client a one second retransmission.
 		_, _ = io.Copy(io.Discard, c)
+		return
+	}
+	if web && isHTTP(buffer[:n]) {
+		if *verbose {
+			log.Printf("[%s] HTTP from %s", kind, c.RemoteAddr())
+		}
+		handedOff = true
+		serveHTTP(c, buffer[:n])
 	}
 }

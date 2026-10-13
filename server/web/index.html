@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>portquiz</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>portquiz</h1>
+      <span id="version" class="muted"></span>
+      <a href="https://github.com/lanrat/portquiz" rel="noreferrer">GitHub</a>
+    </header>
+
+    <p id="intro">Tests which TCP ports this network lets your browser reach on <strong id="server">this server</strong>.</p>
+    <p id="error" class="warning" role="alert" hidden></p>
+
+    <form id="form">
+      <label for="ports">Ports</label>
+      <div class="row">
+        <input id="ports" placeholder="all ports, or e.g. 22,80,1000-2000" autocomplete="off" spellcheck="false" inputmode="numeric">
+        <button id="start" type="submit" disabled>Start</button>
+      </div>
+      <details id="advanced">
+        <summary>Advanced</summary>
+        <div class="grid">
+          <label>Timeout (ms) <input id="timeout" type="number" min="100" max="60000" value="2000"></label>
+          <label class="check"><input id="adaptive" type="checkbox" checked> Adapt the timeout to how quickly open ports answer</label>
+          <label>Ports tested at once <input id="parallel" type="number" min="1" max="256" value="128"></label>
+          <label>Connections per second, 0 for no limit <input id="rate" type="number" min="0" value="500"></label>
+        </div>
+      </details>
+    </form>
+
+    <section id="progress-section" hidden>
+      <progress id="progress" max="1" value="0" aria-label="Progress"></progress>
+      <div class="status-row">
+        <span id="status" aria-live="polite"></span>
+        <span id="eta"></span>
+      </div>
+      <p id="background" class="warning" hidden>This tab is in the background. Browsers slow down background tabs, so the test runs slower until you return to it.</p>
+    </section>
+
+    <section id="summary" hidden></section>
+
+    <section id="results-section" hidden>
+      <div class="results-head">
+        <h2>Results</h2>
+        <div id="filter" role="radiogroup" aria-label="Show">
+          <label><input type="radio" name="filter" value="all" checked> All</label>
+          <label><input type="radio" name="filter" value="open"> Open</label>
+          <label><input type="radio" name="filter" value="closed"> Closed</label>
+        </div>
+        <button id="save" type="button" hidden>Save JSON</button>
+      </div>
+      <ol id="results"></ol>
+      <p id="more" class="muted"></p>
+    </section>
+
+    <footer class="muted">
+      <p>A browser can only test ports with web requests, so this is a quick check. It cannot test the ports browsers refuse to use, such as 22 (SSH), 25 (SMTP) and 53 (DNS), or UDP, and it tells closed ports apart less precisely. For a full test, use the <a href="https://github.com/lanrat/portquiz/releases/latest" rel="noreferrer">command line client or the Android app</a>.</p>
+    </footer>
+  </main>
+</body>
+</html>
