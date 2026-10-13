@@ -150,6 +150,13 @@ summary {
   margin-top: 8px;
 }
 
+.protocols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin-top: 10px;
+}
+
 label.check {
   display: flex;
   gap: 8px;
@@ -249,7 +256,7 @@ progress {
   background: var(--swatch);
 }
 
-#inspect {
+.inspect {
   min-height: 1.5em;
   color: var(--text-2);
   font-size: 13px;

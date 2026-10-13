@@ -43,9 +43,10 @@ func udpServer(ctx context.Context, listenAddr string) error {
 	stop := context.AfterFunc(ctx, func() { _ = l.Close() })
 	defer stop()
 
+	web := *webEnabled
 	var wg sync.WaitGroup
 	for range udpReaders() {
-		wg.Go(func() { udpRead(l) })
+		wg.Go(func() { udpRead(l, web) })
 	}
 	wg.Wait()
 	return ctx.Err()
@@ -56,9 +57,10 @@ func udpReaders() int {
 	return min(max(runtime.NumCPU(), 2), 8)
 }
 
-// udpRead handles packets on l until it is closed.
-func udpRead(l *net.UDPConn) {
-	buffer := make([]byte, 128)
+// udpRead handles packets on l until it is closed. STUN binding requests,
+// from the browser test page, are answered if web is set.
+func udpRead(l *net.UDPConn, web bool) {
+	buffer := make([]byte, 2048)
 	for {
 		n, remoteAddr, err := l.ReadFromUDP(buffer)
 		if err != nil {
@@ -78,6 +80,14 @@ func udpRead(l *net.UDPConn) {
 				log.Printf("[UDP] PORTQUIZ from %s", remoteAddr)
 			}
 			_, err = l.WriteToUDP(buffer[:n], remoteAddr)
+			if err != nil && *verbose {
+				log.Printf("UDP write error to [%s]: %s", remoteAddr, err)
+			}
+		} else if web && isSTUNBinding(buffer[:n]) {
+			if *verbose {
+				log.Printf("[UDP] STUN from %s", remoteAddr)
+			}
+			_, err = l.WriteToUDP(stunBindingResponse(buffer[:n], remoteAddr), remoteAddr)
 			if err != nil && *verbose {
 				log.Printf("UDP write error to [%s]: %s", remoteAddr, err)
 			}

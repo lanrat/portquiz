@@ -21,15 +21,18 @@ export const STATUSES = ['open', 'rejected', 'dropped', 'interfered', 'error', '
 export const OPEN = 1;
 export const BROWSER = 6;
 
-// Services people often need, checked in the summary. Only TCP is tested
-// from a browser.
+// Services people often need, checked in the summary.
 export const SERVICES = [
-  ['FTP', 21], ['SSH', 22], ['Telnet', 23], ['SMTP', 25], ['DNS', 53], ['HTTP', 80],
-  ['POP3', 110], ['IMAP', 143], ['HTTPS', 443], ['SMB', 445], ['SMTPS', 465],
-  ['SMTP submission', 587], ['DNS over TLS', 853], ['IMAPS', 993], ['POP3S', 995],
-  ['OpenVPN', 1194], ['PPTP', 1723], ['MySQL', 3306], ['RDP', 3389], ['SIP', 5060],
-  ['PostgreSQL', 5432], ['HTTP alt', 8080], ['HTTPS alt', 8443],
-];
+  ['FTP', 21, 'tcp'], ['SSH', 22, 'tcp'], ['Telnet', 23, 'tcp'], ['SMTP', 25, 'tcp'],
+  ['DNS', 53, 'tcp'], ['DNS', 53, 'udp'], ['HTTP', 80, 'tcp'], ['POP3', 110, 'tcp'],
+  ['NTP', 123, 'udp'], ['IMAP', 143, 'tcp'], ['HTTPS', 443, 'tcp'], ['HTTP/3 (QUIC)', 443, 'udp'],
+  ['SMB', 445, 'tcp'], ['SMTPS', 465, 'tcp'], ['IPsec IKE', 500, 'udp'], ['SMTP submission', 587, 'tcp'],
+  ['DNS over TLS', 853, 'tcp'], ['IMAPS', 993, 'tcp'], ['POP3S', 995, 'tcp'], ['OpenVPN', 1194, 'tcp'],
+  ['OpenVPN', 1194, 'udp'], ['L2TP', 1701, 'udp'], ['PPTP', 1723, 'tcp'], ['MySQL', 3306, 'tcp'],
+  ['RDP', 3389, 'tcp'], ['STUN/TURN', 3478, 'udp'], ['IPsec NAT-T', 4500, 'udp'], ['SIP', 5060, 'tcp'],
+  ['SIP', 5060, 'udp'], ['PostgreSQL', 5432, 'tcp'], ['HTTP alt', 8080, 'tcp'], ['HTTPS alt', 8443, 'tcp'],
+  ['WireGuard', 51820, 'udp'],
+].map(([name, port, protocol]) => ({ name, port, protocol }));
 
 // parsePorts parses a list of ports and ranges such as "22,80,1000-2000"
 // into sorted ports without duplicates, like the command line client's
@@ -194,6 +197,29 @@ export async function testPort(port, net, { token, estimator, retries }) {
   return { status: 'dropped' };
 }
 
+// testUDPPort tests one UDP port with a STUN request and returns {status,
+// rtt}: open if the server answered, or dropped. A closed UDP port gives a
+// browser no other sign, so rejected and dropped cannot be told apart.
+//   net.stun(port, timeout) resolves to {type: 'response', ms} or
+//     {type: 'aborted'} if the timeout passed
+export async function testUDPPort(port, net, { estimator, retries }) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const r = await net.stun(port, estimator.timeout());
+    if (r.type === 'response') {
+      estimator.sample(r.ms);
+      return { status: 'open', rtt: r.ms };
+    }
+  }
+  if (estimator.shouldRecheck()) {
+    const r = await net.stun(port, estimator.max);
+    if (r.type === 'response') {
+      estimator.missed(r.ms);
+      return { status: 'open', rtt: r.ms, late: true };
+    }
+  }
+  return { status: 'dropped' };
+}
+
 // blockedCheck decides how to tell the ports the browser refuses. A refused
 // port fails at once, before any network traffic, for any address, while a
 // port that is not refused waits for an answer. So a port that fails quickly
@@ -332,10 +358,10 @@ export function rttStats(rtts) {
 
 // buildReport returns the scan's report in the command line client's -json
 // format, with the browser's additions: "client" and "browser_blocked".
-export function buildReport({ info, host, results, started, finished, canceled, options, estimator, retries, detection }) {
-  const ranges = results.ranges();
+// kinds are the kinds tested, each {kind, results, estimator, retries}.
+export function buildReport({ info, host, ports, kinds, started, finished, canceled, options, detection }) {
   const seconds = (finished - started) / 1000;
-  const n = (s) => results.count(s);
+  const done = kinds.reduce((sum, k) => sum + k.results.done, 0);
   return {
     version: info.version,
     client: 'browser',
@@ -343,38 +369,41 @@ export function buildReport({ info, host, results, started, finished, canceled, 
     started: new Date(started).toISOString(),
     finished: new Date(finished).toISOString(),
     duration_seconds: Math.round(seconds * 1000) / 1000,
-    tested_per_second: seconds > 0 ? Math.round((results.done / seconds) * 10) / 10 : 0,
+    tested_per_second: seconds > 0 ? Math.round((done / seconds) * 10) / 10 : 0,
     canceled,
     options: {
-      ports: formatPorts(results.ports),
-      tcp: true,
-      udp: false,
+      ports: formatPorts(ports),
+      tcp: kinds.some((k) => k.kind === 'tcp'),
+      udp: kinds.some((k) => k.kind === 'udp'),
       ipv4: false,
       ipv6: false,
       timeout_ms: options.timeout,
       adaptive: options.adaptive,
-      retries,
+      retries: -1,
       parallel: options.parallel,
       rate: options.rate,
       multi: 1,
     },
     browser_blocked_detection: detection,
-    kinds: [{
-      kind: 'tcp',
-      address: info.server,
-      tested: results.done,
-      untested: results.ports.length - results.done,
-      open: n('open'),
-      rejected: n('rejected'),
-      dropped: n('dropped'),
-      interfered: n('interfered'),
-      errors: n('error'),
-      browser_blocked: n('browser'),
-      late: estimator.misses,
-      retries,
-      timeout_ms: Math.round(estimator.timeout() * 10) / 10,
-      open_rtt_ms: rttStats(results.rtts),
-      ranges,
-    }],
+    kinds: kinds.map(({ kind, results, estimator, retries }) => {
+      const n = (s) => results.count(s);
+      return {
+        kind,
+        address: info.server,
+        tested: results.done,
+        untested: results.ports.length - results.done,
+        open: n('open'),
+        rejected: n('rejected'),
+        dropped: n('dropped'),
+        interfered: n('interfered'),
+        errors: n('error'),
+        browser_blocked: n('browser'),
+        late: estimator.misses,
+        retries,
+        timeout_ms: Math.round(estimator.timeout() * 10) / 10,
+        open_rtt_ms: rttStats(results.rtts),
+        ranges: results.ranges(),
+      };
+    }),
   };
 }

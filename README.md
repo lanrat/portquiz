@@ -89,7 +89,7 @@ Usage of ./portquiz-server:
   -version
         show version information
   -web
-        serve the browser test page, and answer its HTTP checks on every port (default true)
+        serve the browser test page, and answer its HTTP and STUN checks on every port (default true)
 ```
 
 ### Example Server
@@ -307,14 +307,14 @@ Ports that time out are retried once by default, since packets can be lost. The 
 
 The server also serves a test page: open `http://<server>/` in any browser, on any port, and press Start. It needs nothing installed, so it works on phones, including iPhones, and on computers where you cannot install the client. Use `-web=false` on the server to turn it off; the client and the Android app do not need it.
 
-A browser cannot open raw connections, so the page tests each port with a web request to the server, which answers web requests on every port alongside the client's password. That makes it a quick check rather than a full test:
+A browser cannot open raw connections, so the page tests TCP ports with web requests and UDP ports with STUN requests, which browsers send for WebRTC to learn their public address. The server answers both on every port, alongside the client's password. That makes it a quick check rather than a full test:
 
-- **Ports browsers refuse**: browsers refuse to connect to about 80 ports, including 21 (FTP), 22 (SSH), 25 (SMTP), 53 (DNS), 110, 143, 465, 587, 993 and 995, so those cannot be tested. The page works out which ports the browser refuses while it runs, so it keeps up as browsers change their lists: the browser refuses such a port at once, for any address, so a port that fails quickly against the server is tried against a documentation address that never answers (192.0.2.1, or 2001:db8::1 for IPv6). Failing at once there too means the browser refused it. Where that address does not behave that way, the page uses the [Fetch standard's list](https://fetch.spec.whatwg.org/#bad-port) instead and says so. A network that rejects a port for every destination looks the same as the browser refusing it.
-- **TCP only**: UDP cannot be tested from a browser this way.
+- **TCP ports browsers refuse**: browsers refuse to connect to about 80 TCP ports, including 21 (FTP), 22 (SSH), 25 (SMTP), 53 (DNS), 110, 143, 465, 587, 993 and 995, so those cannot be tested. The page works out which ports the browser refuses while it runs, so it keeps up as browsers change their lists: the browser refuses such a port at once, for any address, so a port that fails quickly against the server is tried against a documentation address that never answers (192.0.2.1, or 2001:db8::1 for IPv6). Failing at once there too means the browser refused it. Where that address does not behave that way, the page uses the [Fetch standard's list](https://fetch.spec.whatwg.org/#bad-port) instead and says so. A network that rejects a port for every destination looks the same as the browser refusing it.
+- **UDP**: choose UDP next to TCP. A UDP port either answers or not: a closed port gives a browser no sign of why, so rejected and dropped show alike as no answer. Browsers only allow a page a few hundred WebRTC connections, so the page reuses 32 of them, each pointed at one port after another, and a full UDP test of a network that drops most UDP takes a while. If no UDP port answers at all, either the network blocks UDP to the server, or the browser hides WebRTC answers, as some privacy settings and extensions do.
 - **Web traffic**: it shows whether web requests on a port reach the server. A filter that inspects traffic may treat them differently from other traffic, and a proxy that passes web requests through makes a port look open.
 - **Closed ports**: rejected, dropped and interfered are told apart as well as a browser allows: a refused connection and an answer that is not the server's both fail the same way, so a second request checks whether anything answered.
 - **Plain HTTP**: the page must be opened over `http://`, since a secure page cannot make plain requests, and browsers set to always upgrade to HTTPS need an exception for the server.
-- **Speed**: browsers limit how many connections a page opens, so it tests 128 ports at once by default, and they slow down background tabs, so keep the tab open.
+- **Speed**: browsers limit how many connections a page opens, so it tests 128 TCP and 32 UDP ports at once by default, sharing the 500 connections per second limit, and they slow down background tabs, so keep the tab open.
 
 The summary at the end matches the Android app's, and Save JSON saves the results in the same format as the client's [JSON report](#json-report), with `"client": "browser"`, a `browser` status and a `browser_blocked` count for the ports the browser refused, and how they were detected in `browser_blocked_detection`.
 

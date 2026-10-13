@@ -1,7 +1,8 @@
 // Package main serves the browser test page. Browsers cannot open raw
-// sockets, so the page tests ports with HTTP requests instead: every port
-// is redirected to the server, so it answers HTTP on every port, and the
-// page checks each answer carries this run's token.
+// sockets, so the page tests TCP ports with HTTP requests instead: every
+// port is redirected to the server, so it answers HTTP on every port, and
+// the page checks each answer carries this run's token. UDP ports are
+// tested with STUN, see stun.go.
 package main
 
 import (
@@ -20,7 +21,7 @@ import (
 	"time"
 )
 
-var webEnabled = flag.Bool("web", true, "serve the browser test page, and answer its HTTP checks on every port")
+var webEnabled = flag.Bool("web", true, "serve the browser test page, and answer its HTTP and STUN checks on every port")
 
 //go:embed web/index.html web/style.css web/app.js web/core.js
 var webFiles embed.FS

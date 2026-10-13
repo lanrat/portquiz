@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ETA, Results, STANDARD_BLOCKED, TimeoutEstimator, blockedCheck, buildReport, formatDuration, formatPorts,
-  largestClosed, mapColumns, parsePorts, roundETA, rttStats, segmentHeights, testPort,
+  SERVICES, largestClosed, mapColumns, parsePorts, roundETA, rttStats, segmentHeights, testPort, testUDPPort,
 } from './core.js';
 
 test('parsePorts', () => {
@@ -190,31 +190,61 @@ test('rttStats', () => {
 });
 
 test('buildReport matches the command line client format', () => {
-  const r = new Results([1, 2, 3]);
-  r.set(1, 'open', 10);
-  r.set(2, 'browser');
-  const e = new TimeoutEstimator(2000, true);
+  const tcp = new Results([1, 2, 3]);
+  tcp.set(1, 'open', 10);
+  tcp.set(2, 'browser');
+  const udp = new Results([1, 2, 3]);
+  udp.set(3, 'dropped');
   const rep = buildReport({
     info: { version: 'v1.8.0', server: '192.0.2.10' },
     host: 'example.com',
-    results: r,
+    ports: [1, 2, 3],
+    kinds: [
+      { kind: 'tcp', results: tcp, estimator: new TimeoutEstimator(2000, true), retries: 1 },
+      { kind: 'udp', results: udp, estimator: new TimeoutEstimator(2000, true), retries: 1 },
+    ],
     started: 0,
     finished: 2000,
     canceled: true,
     options: { timeout: 2000, adaptive: true, parallel: 128, rate: 500 },
-    estimator: e,
-    retries: 1,
     detection: 'runtime',
   });
   assert.equal(rep.client, 'browser');
-  assert.equal(rep.tested_per_second, 1);
+  assert.equal(rep.tested_per_second, 1.5);
   assert.equal(rep.options.ports, '1-3');
-  const k = rep.kinds[0];
+  assert.ok(rep.options.tcp && rep.options.udp);
+  const [k, u] = rep.kinds;
+  assert.equal(k.kind, 'tcp');
   assert.equal(k.tested, 2);
   assert.equal(k.untested, 1);
   assert.equal(k.open, 1);
   assert.equal(k.browser_blocked, 1);
   assert.deepEqual(k.open_rtt_ms, { min: 10, median: 10, p95: 10, max: 10 });
   assert.deepEqual(k.ranges.map((x) => x.status), ['open', 'browser']);
+  assert.equal(u.kind, 'udp');
+  assert.equal(u.dropped, 1);
+  assert.equal(u.open_rtt_ms, undefined);
   JSON.parse(JSON.stringify(rep));
+});
+
+test('testUDPPort retries and rechecks', async () => {
+  const answers = { 1: [{ type: 'response', ms: 30 }], 2: [{ type: 'aborted' }, { type: 'response', ms: 40 }], 3: [{ type: 'aborted' }, { type: 'aborted' }] };
+  const calls = [];
+  const net = { stun: async (port, timeout) => { calls.push([port, timeout]); return answers[port].shift() ?? { type: 'aborted' }; } };
+  const e = new TimeoutEstimator(2000, false);
+  assert.deepEqual(await testUDPPort(1, net, { estimator: e, retries: 1 }), { status: 'open', rtt: 30 });
+  assert.deepEqual(await testUDPPort(2, net, { estimator: e, retries: 1 }), { status: 'open', rtt: 40 });
+  assert.deepEqual(await testUDPPort(3, net, { estimator: e, retries: 1 }), { status: 'dropped' });
+  assert.equal(calls.filter((c) => c[0] === 3).length, 2);
+  // with an adaptive timeout, the first timed out port is rechecked in full
+  const a = new TimeoutEstimator(2000, true);
+  a.sample(50);
+  const late = { stun: async (port, timeout) => (timeout === 2000 ? { type: 'response', ms: 800 } : { type: 'aborted' }) };
+  assert.deepEqual(await testUDPPort(4, late, { estimator: a, retries: 1 }), { status: 'open', rtt: 800, late: true });
+});
+
+test('services are unique', () => {
+  const keys = SERVICES.map((s) => `${s.port}/${s.protocol}`);
+  assert.equal(new Set(keys).size, keys.length);
+  assert.ok(SERVICES.every((s) => s.port >= 1 && s.port <= 65535 && ['tcp', 'udp'].includes(s.protocol)));
 });
