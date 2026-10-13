@@ -448,7 +448,7 @@ function renderSummary(s) {
     }
   }
   for (const st of shown) out.push(el('p', explain[st], { className: 'muted' }));
-  if (s.kinds.some((k) => k.kind === 'udp')) {
+  if (s.kinds.some((k) => k.kind === 'udp' && k.results.count('dropped') > 0)) {
     out.push(el('p', 'UDP: a port that is not open gives a browser no sign of why, so rejected and dropped UDP ports both show as no answer.', { className: 'muted' }));
   }
 
