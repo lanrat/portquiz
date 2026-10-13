@@ -3,9 +3,11 @@ package scan
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net"
 	"os"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -25,6 +27,9 @@ func (t *target) checkTCP(ctx context.Context, port int, timeout time.Duration) 
 			return outcomeRefused, 0
 		case os.IsTimeout(err):
 			return outcomeTimeout, 0
+		case errors.Is(err, syscall.ECONNRESET), errors.Is(err, syscall.ECONNABORTED):
+			// accepted, then cut before the connection was set up
+			return outcomeInterfered, 0
 		default:
 			return outcomeError, 0
 		}

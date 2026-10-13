@@ -58,6 +58,8 @@ func TestCheckTCP(t *testing.T) {
 			time.Sleep(time.Second)
 		}), outcomeSilent},
 		{"reset", startTCPHandler(t, func(c *net.TCPConn) {
+			// reset once the client has sent its data
+			_, _ = c.Read(make([]byte, 64))
 			_ = c.SetLinger(0)
 		}), outcomeInterfered},
 	}
