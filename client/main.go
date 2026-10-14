@@ -41,6 +41,9 @@ var (
 	noProgress  = flag.Bool("no-progress", false, "disable the progress bar shown when stderr is a terminal")
 	jsonPath    = flag.String("json", "", "when testing finishes, write a JSON report of every result to `file`, or to stdout with - instead of the usual results")
 	format      = flag.String("format", formatRanges, "output format: \"ranges\" merges consecutive ports with the same result, \"ports\" prints one line per port")
+	label       = flag.String("label", "", "a name for this run recorded in the -json report, such as \"home wifi\", to tell runs apart when comparing them")
+	diff        = flag.Bool("diff", false, "compare two JSON reports instead of testing: portquiz -diff a.json b.json lists the ports whose result changed from a to b, "+
+		"and exits with status 1 if any did; with -json it writes the comparison as JSON")
 )
 
 // retry is the -retry flag; when it is not set each protocol uses its own default.
@@ -82,6 +85,10 @@ func main() {
 	if *version {
 		fmt.Printf("portquiz client %s\n", Version)
 		os.Exit(0)
+	}
+
+	if *diff {
+		os.Exit(runDiff(flag.Args()))
 	}
 
 	if flag.NArg() != 1 {
@@ -148,7 +155,9 @@ func main() {
 	if *jsonPath != "" {
 		rep := rec.Report(time.Now(), ctx.Err() != nil)
 		rep.Version = Version
-		if err := writeReport(*jsonPath, rep); err != nil {
+		rep.Client = "cli"
+		rep.Label = *label
+		if err := writeJSON(*jsonPath, rep); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -220,10 +229,10 @@ func printResults(ctx context.Context, s *scan.Scan, rec *scan.Recorder) {
 	}
 }
 
-// writeReport writes rep as indented JSON to the file at path, or to stdout
-// if path is "-".
-func writeReport(path string, rep *scan.Report) error {
-	data, err := json.MarshalIndent(rep, "", "  ")
+// writeJSON writes v as indented JSON to the file at path, or to stdout if
+// path is "-".
+func writeJSON(path string, v any) error {
+	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -233,7 +242,7 @@ func writeReport(path string, rep *scan.Report) error {
 		return err
 	}
 	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("writing the JSON report: %w", err)
+		return fmt.Errorf("writing %s: %w", path, err)
 	}
 	return nil
 }

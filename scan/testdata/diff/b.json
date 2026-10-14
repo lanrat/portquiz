@@ -1,0 +1,129 @@
+{
+  "version": "v1.12.0",
+  "client": "cli",
+  "host": "portquiz.example.com",
+  "started": "2026-10-14T10:00:00Z",
+  "finished": "2026-10-14T10:02:00Z",
+  "duration_seconds": 120,
+  "tested_per_second": 1,
+  "canceled": true,
+  "options": {
+    "ports": "1-50",
+    "tcp": true,
+    "udp": true,
+    "ipv4": false,
+    "ipv6": false,
+    "timeout_ms": 2000,
+    "adaptive": true,
+    "retries": 1,
+    "parallel": 64,
+    "rate": 1000,
+    "multi": 1
+  },
+  "kinds": [
+    {
+      "kind": "tcp4",
+      "address": "192.0.2.10",
+      "tested": 50,
+      "untested": 0,
+      "open": 15,
+      "rejected": 13,
+      "dropped": 7,
+      "interfered": 15,
+      "errors": 0,
+      "late": 0,
+      "retries": 3,
+      "timeout_ms": 600,
+      "open_rtt_ms": {
+        "min": 11,
+        "median": 14,
+        "p95": 30,
+        "max": 31
+      },
+      "ranges": [
+        {
+          "first": 1,
+          "last": 5,
+          "status": "open"
+        },
+        {
+          "first": 6,
+          "last": 12,
+          "status": "dropped"
+        },
+        {
+          "first": 13,
+          "last": 25,
+          "status": "rejected"
+        },
+        {
+          "first": 26,
+          "last": 35,
+          "status": "open"
+        },
+        {
+          "first": 36,
+          "last": 50,
+          "status": "interfered"
+        }
+      ]
+    },
+    {
+      "kind": "tcp6",
+      "address": "2001:db8::10",
+      "tested": 3,
+      "untested": 47,
+      "open": 3,
+      "rejected": 0,
+      "dropped": 0,
+      "interfered": 0,
+      "errors": 0,
+      "late": 0,
+      "retries": 0,
+      "timeout_ms": 600,
+      "ranges": [
+        {
+          "first": 1,
+          "last": 3,
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "kind": "udp4",
+      "address": "192.0.2.10",
+      "tested": 12,
+      "untested": 38,
+      "open": 5,
+      "rejected": 4,
+      "dropped": 2,
+      "interfered": 0,
+      "errors": 0,
+      "late": 0,
+      "retries": 10,
+      "timeout_ms": 600,
+      "ranges": [
+        {
+          "first": 1,
+          "last": 5,
+          "status": "open"
+        },
+        {
+          "first": 6,
+          "last": 9,
+          "status": "rejected"
+        },
+        {
+          "first": 10,
+          "last": 10,
+          "status": "interfered"
+        },
+        {
+          "first": 11,
+          "last": 12,
+          "status": "dropped"
+        }
+      ]
+    }
+  ]
+}

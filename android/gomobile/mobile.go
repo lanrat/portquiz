@@ -223,8 +223,35 @@ func (m *Scan) report(ctx context.Context, s *scan.Scan, rec *scan.Recorder, ver
 	}
 	rep := rec.Report(time.Now(), summary.Canceled)
 	rep.Version = version
+	rep.Client = "android"
 	if data, err := json.Marshal(rep); err == nil {
 		summary.Report = string(data)
 	}
 	l.OnFinish(summary)
+}
+
+// CheckReport checks that data is a JSON report from any portquiz client,
+// such as one being imported, and returns why not if it is not.
+func CheckReport(data string) error {
+	_, err := scan.ParseReport([]byte(data))
+	return err
+}
+
+// Diff compares the JSON reports a and b, and returns the comparison as
+// JSON, the same as the command line client's -diff with -json: per kind,
+// the ports whose status changed from a to b as ranges, and counts.
+func Diff(a, b string) (string, error) {
+	ra, err := scan.ParseReport([]byte(a))
+	if err != nil {
+		return "", err
+	}
+	rb, err := scan.ParseReport([]byte(b))
+	if err != nil {
+		return "", err
+	}
+	data, err := json.Marshal(scan.DiffReports(ra, rb))
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }

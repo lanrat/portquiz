@@ -1,7 +1,9 @@
 // Tests for core.js: node --test server/web/core_test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
+  CHANGES, diffReports, kindKey, parseReport,
   ETA, Results, STANDARD_BLOCKED, TimeoutEstimator, blockedCheck, buildReport, formatDuration, formatPorts,
   SERVICES, largestClosed, mapColumns, parsePorts, roundETA, rttStats, segmentHeights, testPort, testUDPPort,
 } from './core.js';
@@ -196,7 +198,7 @@ test('buildReport matches the command line client format', () => {
   const udp = new Results([1, 2, 3]);
   udp.set(3, 'dropped');
   const rep = buildReport({
-    info: { version: 'v1.8.0', server: '192.0.2.10' },
+    info: { version: 'v1.8.0', server: '192.0.2.10', client: '198.51.100.7' },
     host: 'example.com',
     ports: [1, 2, 3],
     kinds: [
@@ -211,6 +213,7 @@ test('buildReport matches the command line client format', () => {
     scheme: 'https',
   });
   assert.equal(rep.client, 'browser');
+  assert.equal(rep.client_address, '198.51.100.7');
   assert.equal(rep.tcp_requests, 'https');
   assert.equal(rep.tested_per_second, 1.5);
   assert.equal(rep.options.ports, '1-3');
@@ -249,4 +252,130 @@ test('services are unique', () => {
   const keys = SERVICES.map((s) => `${s.port}/${s.protocol}`);
   assert.equal(new Set(keys).size, keys.length);
   assert.ok(SERVICES.every((s) => s.port >= 1 && s.port <= 65535 && ['tcp', 'udp'].includes(s.protocol)));
+});
+
+const testdata = (name) => readFileSync(new URL(`../../scan/testdata/diff/${name}`, import.meta.url), 'utf8');
+
+// times as Go writes them differ in form, not in value
+const sameTimes = (d) => {
+  for (const r of [d.a, d.b]) {
+    r.started = new Date(r.started).toISOString();
+    r.finished = new Date(r.finished).toISOString();
+  }
+  return d;
+};
+
+test('diffReports gives the Go diff of the shared test reports', () => {
+  const got = diffReports(parseReport(testdata('a.json')), parseReport(testdata('b.json')));
+  const want = JSON.parse(testdata('want.json'));
+  assert.deepEqual(sameTimes(JSON.parse(JSON.stringify(got))), sameTimes(want));
+  // and in the same order, so saved diffs read the same
+  assert.deepEqual(Object.keys(got.kinds[0]), Object.keys(want.kinds[0]));
+  assert.deepEqual(Object.keys(got.a), Object.keys(want.a));
+});
+
+test('a built report diffs with itself as unchanged', () => {
+  const r = new Results([1, 2, 3, 5]);
+  r.set(1, 'open', 5);
+  r.set(2, 'browser');
+  r.set(3, 'dropped');
+  r.set(5, 'rejected');
+  const rep = buildReport({
+    info: { version: 'v1', server: '2001:db8::10', client: '2001:db8::7' }, host: 'example.com', ports: [1, 2, 3, 5],
+    kinds: [{ kind: 'tcp', results: r, estimator: new TimeoutEstimator(2000, true), retries: 1 }],
+    started: 0, finished: 1000, canceled: false, options: { timeout: 2000, adaptive: true, parallel: 1, rate: 0 }, detection: 'runtime',
+  });
+  const d = diffReports(parseReport(JSON.stringify(rep)), parseReport(JSON.stringify(rep)));
+  assert.equal(d.kinds.length, 1);
+  assert.equal(d.kinds[0].kind, 'tcp6');
+  assert.equal(d.kinds[0].unchanged, 3);
+  assert.deepEqual(d.kinds[0].changes, []);
+  assert.deepEqual(d.kinds[0].ranges, [{ first: 1, last: 1, change: 'unchanged' }, { first: 3, last: 3, change: 'unchanged' }, { first: 5, last: 5, change: 'unchanged' }]);
+});
+
+test('mapColumns counts other values too', () => {
+  const { cols } = mapColumns([{ first: 1, last: 4, change: 'opened' }, { first: 5, last: 8, change: 'unchanged' }, { first: 9, last: 9, change: 'odd' }], 1, 8, 2, CHANGES, 'change');
+  assert.deepEqual(cols, [[4, 0, 0, 0, 0, 0], [0, 0, 0, 4, 0, 0]]);
+});
+
+test('parseReport rejects what is not a report', () => {
+  for (const text of [
+    'hello', '[1, 2]', 'null', '{"host": "x"}', '{"kinds": "tcp"}', '{"a": {}, "b": {}, "kinds": []}',
+    '{"kinds": [{"kind": "tcp", "ranges": [{"first": 0, "last": 3, "status": "open"}]}]}',
+    '{"kinds": [{"kind": "tcp", "ranges": [{"first": 1, "last": 65536, "status": "open"}]}]}',
+    '{"kinds": [{"kind": "tcp", "ranges": [{"first": 5, "last": 3, "status": "open"}]}]}',
+    '{"kinds": [{"kind": "tcp", "ranges": [{"first": 1, "last": 3, "status": "open"}, {"first": 3, "last": 4, "status": "dropped"}]}]}',
+    '{"kinds": [{"kind": "tcp", "ranges": [{"first": 1, "last": 3}]}]}',
+  ]) {
+    assert.throws(() => parseReport(text), undefined, text);
+  }
+  assert.deepEqual(parseReport('{"kinds": []}').kinds, []);
+});
+
+test('kindKey', () => {
+  assert.equal(kindKey({ kind: 'tcp', address: '192.0.2.1' }), 'tcp4');
+  assert.equal(kindKey({ kind: 'udp', address: '2001:db8::1' }), 'udp6');
+  assert.equal(kindKey({ kind: 'tcp6', address: '' }), 'tcp6');
+  assert.equal(kindKey({ kind: 'tcp' }), 'tcp');
+});
+
+// a small seeded random number generator, so failures repeat
+function random(seed) {
+  return () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+}
+
+test('diffReports agrees with comparing each port', () => {
+  const rnd = random(7);
+  const pick = (n) => Math.floor(rnd() * n);
+  const make = (n) => {
+    const per = new Array(n + 1).fill('');
+    const ranges = [];
+    for (let p = 1; p <= n;) {
+      const s = ['', 'open', 'rejected', 'dropped', 'browser'][pick(5)];
+      const last = Math.min(p + pick(5), n);
+      if (s !== '') ranges.push({ first: p, last, status: s });
+      if (s !== 'browser') for (let q = p; q <= last; q++) per[q] = s;
+      p = last + 1;
+    }
+    return { ranges, per };
+  };
+  for (let round = 0; round < 500; round++) {
+    const n = 1 + pick(60);
+    const a = make(n);
+    const b = make(n);
+    const browserUDP = pick(2) === 0;
+    const ra = browserUDP
+      ? { client: 'browser', kinds: [{ kind: 'udp', address: '192.0.2.1', ranges: a.ranges }] }
+      : { kinds: [{ kind: 'tcp4', ranges: a.ranges }] };
+    if (browserUDP) a.per = a.per.map((s) => (s !== '' && s !== 'open' ? 'closed' : s));
+    const rb = { kinds: [{ kind: browserUDP ? 'udp4' : 'tcp4', ranges: b.ranges }] };
+    const d = diffReports(ra, rb);
+    assert.equal(d.kinds.length, 1);
+    const k = d.kinds[0];
+    const want = Object.fromEntries(CHANGES.map((c) => [c, 0]));
+    const wantPer = new Array(n + 1).fill('');
+    for (let p = 1; p <= n; p++) {
+      const [x, y] = [a.per[p], b.per[p]];
+      if (x === '' && y === '') continue;
+      let c;
+      if (y === '') c = 'only_a';
+      else if (x === '') c = 'only_b';
+      else if (x === y || (x !== 'open' && y !== 'open' && (x === 'closed' || y === 'closed'))) c = 'unchanged';
+      else if (y === 'open') c = 'opened';
+      else if (x === 'open') c = 'closed';
+      else c = 'reason_changed';
+      wantPer[p] = c;
+      want[c]++;
+    }
+    for (const c of CHANGES) assert.equal(k[c], want[c], `${c} in round ${round}`);
+    const gotPer = new Array(n + 1).fill('');
+    for (const r of k.ranges) for (let p = r.first; p <= r.last; p++) gotPer[p] = r.change;
+    assert.deepEqual(gotPer, wantPer);
+    for (const c of k.changes) {
+      for (let p = c.first; p <= c.last; p++) assert.ok(a.per[p] === c.a && b.per[p] === c.b && c.a !== c.b);
+    }
+  }
 });

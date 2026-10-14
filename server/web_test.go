@@ -174,7 +174,7 @@ func TestKeepAlive(t *testing.T) {
 	defer func() { _ = c.Close() }()
 	r := bufio.NewReader(c)
 	for range 2 {
-		if _, err := io.WriteString(c, "GET /probe HTTP/1.1\r\nHost: x\r\n\r\n"); err != nil {
+		if _, err := io.WriteString(c, "GET /info HTTP/1.1\r\nHost: x\r\n\r\n"); err != nil {
 			t.Fatal(err)
 		}
 		res, err := http.ReadResponse(r, nil)
@@ -182,9 +182,29 @@ func TestKeepAlive(t *testing.T) {
 			t.Fatal(err)
 		}
 		body, _ := io.ReadAll(res.Body)
-		if string(body) != webToken {
+		if !strings.Contains(string(body), webToken) {
 			t.Errorf("got %q", body)
 		}
+	}
+}
+
+// TestProbeClosesConnection checks that each probe tests a new connection.
+func TestProbeClosesConnection(t *testing.T) {
+	addr := startServer(t)
+	c, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	_ = c.SetDeadline(time.Now().Add(5 * time.Second))
+	if _, err := io.WriteString(c, "GET /probe HTTP/1.1\r\nHost: x\r\n\r\nGET /probe HTTP/1.1\r\nHost: x\r\n\r\n"); err != nil {
+		t.Fatal(err)
+	}
+	// the server closes the connection after the first answer
+	data, err := io.ReadAll(c)
+	got := string(data)
+	if err != nil || strings.Count(got, webToken) != 1 || !strings.Contains(got, "Connection: close") {
+		t.Errorf("got %q, want one answer and the connection closed", got)
 	}
 }
 

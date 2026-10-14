@@ -55,6 +55,20 @@
 
     <section id="summary" hidden></section>
 
+    <section id="history-section">
+      <div class="results-head">
+        <h2>Past runs</h2>
+        <button id="compare" type="button" disabled>Compare</button>
+        <button id="import-button" type="button" class="secondary">Import JSON</button>
+        <input id="import" type="file" accept=".json,application/json" multiple hidden>
+      </div>
+      <p id="history-note" class="muted">This browser keeps your last 20 runs. Check two to compare them. You can also import reports saved by any portquiz client, such as the command line client's -json.</p>
+      <ul id="history"></ul>
+      <button id="clear-history" type="button" class="secondary" hidden>Clear all</button>
+    </section>
+
+    <section id="comparison" hidden></section>
+
     <section id="results-section" hidden>
       <div class="results-head">
         <h2>Results</h2>

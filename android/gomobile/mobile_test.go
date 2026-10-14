@@ -112,9 +112,34 @@ func TestScan(t *testing.T) {
 	if err := json.Unmarshal([]byte(s.Report), &rep); err != nil {
 		t.Fatalf("report %q: %v", s.Report, err)
 	}
-	if rep.Version != "v9.9.9" || rep.Host != "127.0.0.1" || len(rep.Kinds) != 1 ||
+	if rep.Version != "v9.9.9" || rep.Client != "android" || rep.Host != "127.0.0.1" || len(rep.Kinds) != 1 ||
 		rep.Kinds[0].Open != 1 || rep.Kinds[0].Tested != 3 {
 		t.Errorf("report: %s", s.Report)
+	}
+}
+
+func TestDiff(t *testing.T) {
+	a := `{"host": "x", "kinds": [{"kind": "tcp4", "ranges": [{"first": 1, "last": 10, "status": "open"}]}]}`
+	b := `{"host": "x", "label": "lte", "kinds": [{"kind": "tcp", "address": "192.0.2.1", "ranges": [{"first": 1, "last": 4, "status": "open"}, {"first": 5, "last": 10, "status": "dropped"}]}]}`
+	out, err := Diff(a, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d scan.Diff
+	if err := json.Unmarshal([]byte(out), &d); err != nil {
+		t.Fatal(err)
+	}
+	if d.B.Label != "lte" || len(d.Kinds) != 1 || d.Kinds[0].Closed != 6 || d.Kinds[0].Unchanged != 4 {
+		t.Errorf("diff: %s", out)
+	}
+	if _, err := Diff(a, "{}"); err == nil {
+		t.Error("diff with a file that is not a report worked")
+	}
+	if err := CheckReport(b); err != nil {
+		t.Errorf("check: %s", err)
+	}
+	if err := CheckReport(out); err == nil {
+		t.Error("a diff passed as a report")
 	}
 }
 

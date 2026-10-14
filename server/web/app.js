@@ -8,6 +8,7 @@ const $ = (id) => document.getElementById(id);
 const numbers = new Intl.NumberFormat();
 const decimals = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 const percent = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 });
+const dates = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 // the server's name or address as the page was loaded, with brackets around
 // an IPv6 address, so it can go straight into URLs
@@ -24,6 +25,8 @@ const maxLines = 2000;
 // how many STUN checks one WebRTC connection makes before it is replaced:
 // each check leaves resources behind until the connection is closed
 const stunChecksPerConnection = 50;
+// how many changed ranges a comparison lists; its saved JSON has all of them
+const maxChanges = 200;
 
 const statusLabels = {
   open: 'open',
@@ -39,8 +42,28 @@ function label(kind, status) {
   return kind === 'udp' && status === 'dropped' ? 'no answer' : statusLabels[status];
 }
 
+// how a comparison names changes
+const changeNames = {
+  opened: 'opened',
+  closed: 'closed',
+  reason_changed: 'closed differently',
+  unchanged: 'unchanged',
+  only_a: 'only tested in A',
+  only_b: 'only tested in B',
+};
+
 let info = null;
 let scan = null;
+
+// past runs, newest first, as {id, added, report}; see loadHistory
+const historyKey = 'portquiz-history';
+const historyLimit = 20;
+let history = [];
+// whether past runs can be kept in this browser's storage
+let historyStored = true;
+// the ids of the runs checked for comparing, and of the runs compared
+const selected = new Set();
+let compared = null;
 
 init();
 
@@ -54,6 +77,18 @@ async function init() {
     input.addEventListener('change', renderResults);
   }
   $('save').addEventListener('click', save);
+  $('compare').addEventListener('click', compareSelected);
+  $('import-button').addEventListener('click', () => $('import').click());
+  $('import').addEventListener('change', importFiles);
+  $('clear-history').addEventListener('click', clearHistory);
+  window.addEventListener('storage', (e) => {
+    if (e.key === historyKey) {
+      history = loadHistory();
+      renderHistory();
+    }
+  });
+  history = loadHistory();
+  renderHistory();
   document.addEventListener('visibilitychange', () => {
     $('background').hidden = !(scan?.running && document.hidden);
   });
@@ -207,6 +242,8 @@ function finish(s, canceled) {
   if (!s.running) return;
   s.running = false;
   s.canceled = canceled;
+  // stopped while checking which ports the browser blocks
+  s.detection ??= { threshold: null, reason: 'the test was stopped before it could check' };
   s.finished = Date.now();
   $('start').textContent = 'Start';
   for (const input of document.querySelectorAll('#form input')) input.disabled = false;
@@ -216,7 +253,9 @@ function finish(s, canceled) {
   $('eta').textContent = '';
   renderResults();
   renderSummary(s);
+  s.report = buildReport(s);
   $('save').hidden = false;
+  if (done(s) > 0) addRun(s.report);
 }
 
 // network returns the requests core.testPort makes, for scan s.
@@ -532,28 +571,46 @@ function listDifferences(s, k) {
   return out;
 }
 
-// portMap draws one kind's results across the ports tested: each column
-// covers a run of ports and is split by how many had each status. Pointing
-// at it shows the ports under the pointer.
+// portMap draws one kind's results across the ports tested, see mapView.
 function portMap(s, k) {
-  const ranges = k.results.ranges();
-  const first = s.ports[0];
-  const last = s.ports[s.ports.length - 1];
-  // lay the map out over the ports tested, side by side, so a list such as
-  // 1-1024,8000-8080 is not mostly the gap between them
-  const index = new Int32Array(core.MAX_PORT + 1);
-  s.ports.forEach((p, i) => { index[p] = i; });
-  const byIndex = ranges.map((x) => ({ first: index[x.first], last: index[x.last], status: x.status }));
-  const count = s.ports.length;
-  const canvas = el('canvas', undefined, { className: 'map' });
-  canvas.setAttribute('role', 'img');
-  const inspect = el('p', 'Point at the map to see the ports under it.', { className: 'inspect' });
   const legend = el('div', core.STATUSES.filter((st) => k.results.count(st) > 0).map((st) => {
     const item = el('span', `${numbers.format(k.results.count(st))} ${label(k.kind, st)}`);
     item.style.setProperty('--swatch', `var(--map-${st})`);
     return item;
   }), { className: 'legend' });
-  canvas.setAttribute('aria-label', `${k.kind.toUpperCase()} port map: ${legend.textContent}`);
+  const first = s.ports[0];
+  const last = s.ports[s.ports.length - 1];
+  const span = core.formatPorts(s.ports).replaceAll(',', ', ').replaceAll('-', '–');
+  return [
+    el('p', `${k.kind.toUpperCase()}, ports ${span.length > 80 ? portRange({ first, last }) : span}`, { className: 'muted' }),
+    ...mapView({
+      ports: s.ports,
+      ranges: k.results.ranges(),
+      keys: core.STATUSES,
+      field: 'status',
+      color: (st) => `--map-${st}`,
+      name: (st) => label(k.kind, st),
+      title: k.kind.toUpperCase(),
+      legend,
+    }),
+  ];
+}
+
+// mapView draws ranges of ports, each with one of keys in its field, such
+// as a status: each column covers a run of ports and is split by how many
+// had each key, in color(key). The ports are laid out side by side, so a
+// list such as 1-1024,8000-8080 is not mostly the gap between them.
+// Pointing at the map shows the ports under the pointer. It returns the
+// map, the legend and the line that shows what is pointed at.
+function mapView({ ports, ranges, keys, field, color, name, title, legend }) {
+  const index = new Int32Array(core.MAX_PORT + 1);
+  ports.forEach((p, i) => { index[p] = i; });
+  const byIndex = ranges.map((x) => ({ first: index[x.first], last: index[x.last], [field]: x[field] }));
+  const count = ports.length;
+  const canvas = el('canvas', undefined, { className: 'map' });
+  canvas.setAttribute('role', 'img');
+  canvas.setAttribute('aria-label', `${title} map: ${legend.textContent}`);
+  const inspect = el('p', 'Point at the map to see the ports under it.', { className: 'inspect' });
 
   let layout = null;
   const draw = () => {
@@ -564,20 +621,20 @@ function portMap(s, k) {
     canvas.height = Math.round(64 * ratio);
     const ctx = canvas.getContext('2d');
     const style = getComputedStyle(document.documentElement);
-    const colors = core.STATUSES.map((st) => style.getPropertyValue(`--map-${st}`).trim());
+    const colors = keys.map((key) => style.getPropertyValue(color(key)).trim());
     const h = canvas.height;
     ctx.fillStyle = style.getPropertyValue('--map-track').trim();
     ctx.fillRect(0, 0, canvas.width, h);
-    const { cols, start: colStart } = core.mapColumns(byIndex, 0, count - 1, Math.floor(width / 2));
+    const { cols, start: colStart } = core.mapColumns(byIndex, 0, count - 1, Math.floor(width / 2), keys, field);
     layout = { cols, start: colStart };
     const colW = canvas.width / cols.length;
     cols.forEach((counts, i) => {
       const size = (i + 1 < cols.length ? colStart(i + 1) : count) - colStart(i);
       const heights = core.segmentHeights(counts, size, h, 3 * ratio);
       let bottom = h;
-      heights.forEach((seg, st) => {
+      heights.forEach((seg, key) => {
         if (seg <= 0) return;
-        ctx.fillStyle = colors[st];
+        ctx.fillStyle = colors[key];
         ctx.fillRect(Math.floor(i * colW), bottom - seg, Math.ceil(colW), seg);
         bottom -= seg;
       });
@@ -587,24 +644,22 @@ function portMap(s, k) {
     if (!layout) return;
     const rect = canvas.getBoundingClientRect();
     const i = Math.min(Math.max(Math.floor(((e.clientX - rect.left) / rect.width) * layout.cols.length), 0), layout.cols.length - 1);
-    const from = s.ports[layout.start(i)];
-    const to = s.ports[i + 1 < layout.cols.length ? layout.start(i + 1) - 1 : count - 1];
-    const parts = layout.cols[i].map((c, st) => (c > 0 ? `${numbers.format(c)} ${label(k.kind, core.STATUSES[st])}` : null)).filter(Boolean);
-    inspect.textContent = `${k.kind.toUpperCase()} ports ${portRange({ first: from, last: to })}: ${parts.join(', ') || 'not tested'}`;
+    const from = ports[layout.start(i)];
+    const to = ports[i + 1 < layout.cols.length ? layout.start(i + 1) - 1 : count - 1];
+    const parts = layout.cols[i].map((c, key) => (c > 0 ? `${numbers.format(c)} ${name(keys[key])}` : null)).filter(Boolean);
+    inspect.textContent = `${title} ports ${portRange({ first: from, last: to })}: ${parts.join(', ') || 'not tested'}`;
   };
   canvas.addEventListener('pointermove', point);
   canvas.addEventListener('pointerdown', point);
   new ResizeObserver(draw).observe(canvas);
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
-
-  const span = core.formatPorts(s.ports).replaceAll(',', ', ').replaceAll('-', '–');
-  return [el('p', `${k.kind.toUpperCase()}, ports ${span.length > 80 ? portRange({ first, last }) : span}`, { className: 'muted' }), canvas, legend, inspect];
+  return [canvas, legend, inspect];
 }
 
-// save downloads the report, in the command line client's -json format.
-function save() {
-  const s = scan;
-  const report = core.buildReport({
+// buildReport returns scan s's report, in the command line client's -json
+// format.
+function buildReport(s) {
+  return core.buildReport({
     info,
     host,
     ports: s.ports,
@@ -616,11 +671,314 @@ function save() {
     detection: s.detection.threshold !== null ? 'runtime' : `standard list: ${s.detection.reason}`,
     scheme,
   });
-  const blob = new Blob([JSON.stringify(report, null, 2) + '\n'], { type: 'application/json' });
-  const stamp = new Date(s.started).toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-');
-  const a = el('a', undefined, { href: URL.createObjectURL(blob), download: `portquiz-${host.replace(/[^A-Za-z0-9.-]/g, '_')}-${stamp}.json` });
+}
+
+// save downloads the last run's report, with the label it has been given
+// since, if any.
+function save() {
+  const kept = history.find((e) => e.report.started === scan.report.started && e.report.client === 'browser');
+  saveReport(kept?.report ?? scan.report);
+}
+
+function saveReport(report) {
+  const name = (report.host || 'report').replace(/[^A-Za-z0-9.-]/g, '_');
+  download(report, `portquiz-${name}-${stamp(report.started)}.json`);
+}
+
+// stamp formats a time as 20261013-0930, for file names.
+function stamp(time) {
+  const d = new Date(time);
+  if (Number.isNaN(d.getTime())) return 'unknown';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+// download saves value as a JSON file.
+function download(value, name) {
+  const blob = new Blob([JSON.stringify(value, null, 2) + '\n'], { type: 'application/json' });
+  const a = el('a', undefined, { href: URL.createObjectURL(blob), download: name });
   document.body.append(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+// Past runs are kept in this browser's local storage, so they are only on
+// this device, and pages loaded over HTTP and HTTPS each have their own.
+
+// loadHistory returns the runs kept, or none if storage is not available.
+function loadHistory() {
+  try {
+    const list = JSON.parse(localStorage.getItem(historyKey) ?? '[]');
+    return Array.isArray(list) ? list.filter((e) => typeof e?.id === 'string' && Array.isArray(e.report?.kinds)) : [];
+  } catch {
+    return [];
+  }
+}
+
+// updateHistory applies change to the runs kept, read afresh in case
+// another tab changed them, and stores the result: the newest runs up to
+// the limit, or fewer if storage is full. Without storage the runs are only
+// kept until the page is closed.
+function updateHistory(change) {
+  let list = change(historyStored ? loadHistory() : history).slice(0, historyLimit);
+  for (;;) {
+    try {
+      localStorage.setItem(historyKey, JSON.stringify(list));
+      historyStored = true;
+      break;
+    } catch {
+      if (list.length <= 1) {
+        historyStored = false;
+        break;
+      }
+      list = list.slice(0, -1);
+    }
+  }
+  history = list;
+  for (const id of selected) if (!history.some((e) => e.id === id)) selected.delete(id);
+  if (compared && !compared.every((id) => history.some((e) => e.id === id))) compared = null;
+  renderHistory();
+  renderComparison();
+}
+
+function newID() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function addRun(report) {
+  updateHistory((list) => [{ id: newID(), added: Date.now(), report }, ...list]);
+}
+
+// sameRun reports whether two reports are of the same run.
+function sameRun(a, b) {
+  return a.started === b.started && a.finished === b.finished && a.host === b.host && (a.client ?? '') === (b.client ?? '');
+}
+
+async function importFiles() {
+  const files = [...$('import').files];
+  $('import').value = '';
+  const errors = [];
+  const added = [];
+  for (const file of files) {
+    try {
+      const report = core.parseReport(await file.text());
+      if (history.some((e) => sameRun(e.report, report)) || added.some((r) => sameRun(r, report))) {
+        errors.push(`${file.name}: already in the list`);
+        continue;
+      }
+      added.push(report);
+    } catch (e) {
+      errors.push(`${file.name}: ${e.message}`);
+    }
+  }
+  showError(errors.join('. '));
+  if (added.length > 0) {
+    // the oldest first, so the list stays in the order they ran
+    added.sort((a, b) => String(a.started).localeCompare(String(b.started)));
+    updateHistory((list) => [...added.reverse().map((report) => ({ id: newID(), added: Date.now(), report })), ...list]);
+  }
+}
+
+function clearHistory() {
+  if (!confirm('Remove all past runs from this browser?')) return;
+  selected.clear();
+  updateHistory(() => []);
+}
+
+function formatDate(time) {
+  const d = new Date(time);
+  return Number.isNaN(d.getTime()) ? 'unknown time' : dates.format(d);
+}
+
+// clientName names the client that ran a report.
+function clientName(r) {
+  switch (r.client) {
+    case 'browser': return r.tcp_requests ? `browser (${r.tcp_requests.toUpperCase()})` : 'browser';
+    case 'cli': return 'command line';
+    case 'android': return 'Android';
+    default: return r.client ?? '';
+  }
+}
+
+// kindName names a kind such as "tcp", "udp6" or a diff's "tcp4".
+function kindName(kind) {
+  const protocol = kind.slice(0, 3).toUpperCase();
+  const version = kind.slice(3);
+  return version ? `${protocol} over IPv${version}` : protocol;
+}
+
+// runDetail describes a run on one line: where, how and what it found.
+function runDetail(r) {
+  const parts = [r.host];
+  const client = clientName(r);
+  if (client) parts.push(r.client_address ? `${client} from ${r.client_address}` : client);
+  for (const k of r.kinds) {
+    const tested = (k.tested ?? 0) - (k.browser_blocked ?? 0);
+    parts.push(`${kindName(k.kind)} ${numbers.format(k.open ?? 0)} of ${numbers.format(tested)} open`);
+  }
+  if (r.canceled) parts.push('stopped early');
+  return parts.filter(Boolean).join(' · ');
+}
+
+function renderHistory() {
+  const items = history.map((entry) => {
+    const r = entry.report;
+    const box = el('input', undefined, { type: 'checkbox', checked: selected.has(entry.id) });
+    box.addEventListener('change', () => {
+      if (box.checked) selected.add(entry.id);
+      else selected.delete(entry.id);
+      updateCompareButton();
+    });
+    const title = el('span', `${formatDate(r.started)}${r.label ? ` · ${r.label}` : ''}`, { className: 'run-title' });
+    const actions = el('div', [
+      button('Rename', () => rename(entry, actions)),
+      button('Save', () => saveReport(entry.report)),
+      button('Delete', () => updateHistory((list) => list.filter((e) => e.id !== entry.id))),
+    ], { className: 'run-actions' });
+    return el('li', [
+      el('label', [box, title], { className: 'check' }),
+      el('div', runDetail(r), { className: 'run-detail muted' }),
+      actions,
+    ]);
+  });
+  $('history').replaceChildren(...items);
+  $('clear-history').hidden = history.length === 0;
+  $('history-note').textContent = !historyStored
+    ? 'This browser does not let the page keep past runs, so they are only kept until you close it.'
+    : history.length === 0
+      ? 'Finished runs are kept here, the last 20, to compare. You can also import reports saved by any portquiz client, such as the command line client\'s -json.'
+      : 'This browser keeps your last 20 runs. Check two to compare them. You can also import reports saved by any portquiz client.';
+  updateCompareButton();
+}
+
+function updateCompareButton() {
+  $('compare').disabled = selected.size !== 2;
+  $('compare').textContent = selected.size === 2 || selected.size === 0 ? 'Compare' : `Compare (${selected.size} of 2 checked)`;
+}
+
+function button(text, onClick) {
+  const b = el('button', text, { type: 'button', className: 'link' });
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+// rename lets the user edit a run's label in place of its actions.
+function rename(entry, actions) {
+  const input = el('input', undefined, { value: entry.report.label ?? '', placeholder: 'e.g. home wifi', maxLength: 100 });
+  input.setAttribute('aria-label', 'Label');
+  let ended = false;
+  const end = (keep) => {
+    if (ended) return;
+    ended = true;
+    if (!keep) {
+      renderHistory();
+      return;
+    }
+    const text = input.value.trim();
+    updateHistory((list) => list.map((e) => {
+      if (e.id !== entry.id) return e;
+      const report = { ...e.report, label: text };
+      if (!text) delete report.label;
+      return { ...e, report };
+    }));
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') end(true);
+    if (e.key === 'Escape') end(false);
+  });
+  input.addEventListener('blur', () => end(true));
+  actions.replaceChildren(input);
+  input.focus();
+}
+
+// compareSelected compares the two checked runs, the earlier one as A.
+function compareSelected() {
+  const runs = history.filter((e) => selected.has(e.id));
+  if (runs.length !== 2) return;
+  runs.sort((x, y) => String(x.report.started).localeCompare(String(y.report.started)));
+  compared = runs.map((e) => e.id);
+  renderComparison();
+  $('comparison').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderComparison() {
+  const runs = compared?.map((id) => history.find((e) => e.id === id));
+  if (!runs || runs.some((e) => !e)) {
+    $('comparison').hidden = true;
+    $('comparison').replaceChildren();
+    return;
+  }
+  const [a, b] = runs.map((e) => e.report);
+  const d = core.diffReports(a, b);
+  const swap = el('button', 'Swap A and B', { type: 'button', className: 'secondary' });
+  swap.addEventListener('click', () => {
+    compared.reverse();
+    renderComparison();
+  });
+  const saveDiff = el('button', 'Save JSON', { type: 'button', className: 'secondary' });
+  saveDiff.addEventListener('click', () => download(d, `portquiz-compare-${stamp(a.started)}-${stamp(b.started)}.json`));
+  const close = el('button', 'Close', { type: 'button', className: 'secondary' });
+  close.addEventListener('click', () => {
+    compared = null;
+    renderComparison();
+  });
+  const out = [el('div', [el('h2', 'Comparison'), swap, saveDiff, close], { className: 'compare-head' })];
+  for (const [tag, r] of [['A', a], ['B', b]]) {
+    out.push(el('p', [el('span', tag, { className: 'run-tag' }), `${formatDate(r.started)}${r.label ? ` · ${r.label}` : ''} · ${runDetail(r)}`]));
+  }
+  if (a.host !== b.host) out.push(el('p', `These runs tested different servers: ${a.host} and ${b.host}.`, { className: 'warning' }));
+  if ((a.client === 'browser') !== (b.client === 'browser')) {
+    out.push(el('p', 'One run is from a browser, which cannot test the ports browsers block and tells less about how closed ports were closed, so those ports are not compared or compared as just closed.', { className: 'muted' }));
+  }
+  if (d.kinds.every((k) => core.changed(k) === 0) && d.kinds.some((k) => k.compared > 0)) {
+    out.push(el('p', 'No port\'s result changed.'));
+  }
+
+  for (const k of d.kinds) {
+    out.push(el('h3', kindName(k.kind)));
+    if (!k.a_kind || !k.b_kind) {
+      out.push(el('p', `Only tested in ${k.a_kind ? 'A' : 'B'}.`, { className: 'muted' }));
+      continue;
+    }
+    const counts = [`${numbers.format(k.opened)} opened`, `${numbers.format(k.closed)} closed`, `${numbers.format(k.reason_changed)} closed differently`, `${numbers.format(k.unchanged)} unchanged`];
+    if (k.only_a + k.only_b > 0) counts.push(`${portCount(k.only_a + k.only_b)} tested in only one run`);
+    out.push(el('p', counts.join(', ') + '.'));
+    const rtt = (x) => (x ? `${decimals.format(x.median)} ms` : 'none');
+    const times = k.a_open_rtt_ms || k.b_open_rtt_ms
+      ? ` Median response time of open ports: ${rtt(k.a_open_rtt_ms)} in A, ${rtt(k.b_open_rtt_ms)} in B.`
+      : '';
+    out.push(el('p', `Open: ${numbers.format(k.a_open)} in A, ${numbers.format(k.b_open)} in B.${times}`, { className: 'muted' }));
+    if (k.a_address !== k.b_address) out.push(el('p', `Server address: ${k.a_address} in A, ${k.b_address} in B.`, { className: 'muted' }));
+    if (k.ranges.length > 0) {
+      const ports = k.ranges.flatMap((x) => Array.from({ length: x.last - x.first + 1 }, (_, i) => x.first + i));
+      const present = core.CHANGES.filter((c) => k[c] > 0);
+      const legend = el('div', present.map((c) => {
+        const item = el('span', `${numbers.format(k[c])} ${changeNames[c]}`);
+        item.style.setProperty('--swatch', `var(--change-${c})`);
+        return item;
+      }), { className: 'legend' });
+      out.push(...mapView({
+        ports,
+        ranges: k.ranges,
+        keys: core.CHANGES,
+        field: 'change',
+        color: (c) => `--change-${c}`,
+        name: (c) => changeNames[c],
+        title: kindName(k.kind),
+        legend,
+      }));
+    }
+    const protocol = k.kind.slice(0, 3);
+    const lines = k.changes.slice(0, maxChanges).map((c) => {
+      const services = core.SERVICES.filter((x) => x.protocol === protocol && x.port >= c.first && x.port <= c.last).map((x) => x.name);
+      const names = [...new Set(services)];
+      const size = c.last - c.first + 1;
+      return el('li', `${portRange(c)}${names.length ? ` (${names.slice(0, 3).join(', ')}${names.length > 3 ? ', …' : ''})` : ''}: ${c.a} → ${c.b}${size > 1 ? ` · ${portCount(size)}` : ''}`);
+    });
+    if (lines.length > 0) out.push(el('ul', lines));
+    if (k.changes.length > maxChanges) out.push(el('p', `…and ${numbers.format(k.changes.length - maxChanges)} more changed ranges, all in the saved comparison.`, { className: 'muted' }));
+  }
+  $('comparison').replaceChildren(...out);
+  $('comparison').hidden = false;
 }

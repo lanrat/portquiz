@@ -104,6 +104,10 @@ func webHandler() http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		// each probe tests a new connection: a browser would otherwise keep
+		// this one open and reuse it to test the port again, as a later run
+		// does, and find it open after the network has closed it
+		w.Header().Set("Connection", "close")
 		_, _ = io.WriteString(w, webToken)
 	})
 	mux.HandleFunc("GET /info", func(w http.ResponseWriter, r *http.Request) {

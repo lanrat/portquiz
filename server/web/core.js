@@ -293,17 +293,19 @@ export function formatDuration(ms) {
 
 // mapColumns splits ports first to last into count columns and counts the
 // ports of each status in each, from ranges. Column i covers ports from
-// columnStart(i) up to columnStart(i + 1).
-export function mapColumns(ranges, first, last, count) {
+// columnStart(i) up to columnStart(i + 1). For other values than statuses,
+// such as a diff's changes, keys lists them and field names them in ranges.
+export function mapColumns(ranges, first, last, count, keys = STATUSES, field = 'status') {
   const span = last - first + 1;
   count = Math.max(1, Math.min(count, span));
   const start = (i) => first + Math.floor((span * i) / count);
-  const cols = Array.from({ length: count }, () => new Array(STATUSES.length).fill(0));
+  const cols = Array.from({ length: count }, () => new Array(keys.length).fill(0));
   let col = 0;
   for (const r of ranges) {
     let port = Math.max(r.first, first);
     const end = Math.min(r.last, last);
-    const s = STATUSES.indexOf(r.status);
+    const s = keys.indexOf(r[field]);
+    if (s < 0) continue;
     while (port <= end) {
       while (col + 1 < count && start(col + 1) <= port) col++;
       const colEnd = col + 1 < count ? start(col + 1) - 1 : last;
@@ -357,7 +359,8 @@ export function rttStats(rtts) {
 }
 
 // buildReport returns the scan's report in the command line client's -json
-// format, with the browser's additions: "client" and "browser_blocked".
+// format, with the browser's additions: "client_address", the client's
+// address as the server saw it, and "browser_blocked".
 // kinds are the kinds tested, each {kind, results, estimator, retries}.
 export function buildReport({ info, host, ports, kinds, started, finished, canceled, options, detection, scheme = 'http' }) {
   const seconds = (finished - started) / 1000;
@@ -365,6 +368,7 @@ export function buildReport({ info, host, ports, kinds, started, finished, cance
   return {
     version: info.version,
     client: 'browser',
+    client_address: info.client,
     host,
     started: new Date(started).toISOString(),
     finished: new Date(finished).toISOString(),
@@ -408,4 +412,176 @@ export function buildReport({ info, host, ports, kinds, started, finished, cance
       };
     }),
   };
+}
+
+// parseReport parses a report as JSON, as written by any portquiz client,
+// and checks its ranges: in order, without overlaps, and of valid ports.
+export function parseReport(text) {
+  let r;
+  try {
+    r = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`not a portquiz report: ${e.message}`);
+  }
+  if (r === null || typeof r !== 'object' || Array.isArray(r)) throw new Error('not a portquiz report');
+  if ('a' in r && 'b' in r) throw new Error('this is a comparison of two reports, not a report');
+  if (!Array.isArray(r.kinds)) throw new Error('not a portquiz report: it has no kinds');
+  for (const k of r.kinds) {
+    if (k === null || typeof k !== 'object' || !Array.isArray(k.ranges ?? [])) throw new Error('not a portquiz report: bad kind');
+    let prev = 0;
+    for (const x of k.ranges ?? []) {
+      if (!Number.isInteger(x?.first) || !Number.isInteger(x.last) || typeof x.status !== 'string' ||
+          x.first <= prev || x.last > MAX_PORT || x.first > x.last) {
+        throw new Error(`not a portquiz report: bad range ${x?.first}-${x?.last} in kind "${k.kind}"`);
+      }
+      prev = x.last;
+    }
+  }
+  return r;
+}
+
+// Comparing two runs. This mirrors scan/diff.go, which the command line
+// client and the Android app use, and gives the same JSON; core_test.mjs
+// checks both diff scan/testdata/diff the same way.
+
+// The ways a port's result can compare between two runs, A and B.
+export const CHANGES = ['opened', 'closed', 'reason_changed', 'unchanged', 'only_a', 'only_b'];
+
+// kindKey is the protocol and IP version of a kind: from the kind's name,
+// such as "tcp6", or for a kind named just "tcp" from its address.
+export function kindKey(k) {
+  let protocol = k.kind ?? '';
+  let version = '';
+  if (protocol.length > 3) {
+    version = protocol.slice(3);
+    protocol = protocol.slice(0, 3);
+  } else if (k.address) {
+    version = k.address.includes(':') ? '6' : '4';
+  }
+  return protocol + version;
+}
+
+// diffReports compares report a with report b, both as parseReport returns
+// them: per kind, matched by protocol and IP version, the ports whose status
+// changed from a to b.
+export function diffReports(a, b) {
+  const keys = [...new Set([...a.kinds, ...b.kinds].map(kindKey))].sort();
+  return {
+    a: runInfo(a),
+    b: runInfo(b),
+    kinds: keys.map((key) => diffKind(key, testedKind(a, key), testedKind(b, key))),
+  };
+}
+
+function runInfo(r) {
+  const out = { host: r.host ?? '' };
+  for (const f of ['label', 'client', 'client_address', 'tcp_requests', 'version']) {
+    if (r[f]) out[f] = r[f];
+  }
+  return { ...out, started: r.started, finished: r.finished, canceled: !!r.canceled };
+}
+
+// testedKind returns the kind of r matching key, or null, with only the
+// ranges of ports with a result, and "closed" for closed ports when the
+// client cannot tell how they were closed: a browser cannot tell a rejected
+// UDP port from a dropped one.
+function testedKind(r, key) {
+  const k = r.kinds.find((x) => kindKey(x) === key);
+  if (!k) return null;
+  const unknown = r.client === 'browser' && k.kind.startsWith('udp');
+  const ranges = (k.ranges ?? [])
+    .filter((x) => x.status !== 'browser')
+    .map((x) => (unknown && x.status !== 'open' ? { ...x, status: 'closed' } : x));
+  return { ...k, ranges };
+}
+
+// diffKind compares kind a with kind b, as testedKind returns them: either
+// may be null.
+function diffKind(key, a, b) {
+  const ar = a?.ranges ?? [];
+  const br = b?.ranges ?? [];
+  const open = (ranges) => ranges.reduce((n, r) => n + (r.status === 'open' ? r.last - r.first + 1 : 0), 0);
+  const counts = Object.fromEntries(CHANGES.map((c) => [c, 0]));
+  const changes = [];
+  const ranges = [];
+  // walk the ports with a result in either run, a stretch at a time up to
+  // where a range of either starts or ends
+  let i = 0;
+  let j = 0;
+  for (let port = 1; ;) {
+    while (i < ar.length && ar[i].last < port) i++;
+    while (j < br.length && br[j].last < port) j++;
+    if (i === ar.length && j === br.length) break;
+    let next = MAX_PORT;
+    if (i < ar.length) next = Math.min(next, Math.max(port, ar[i].first));
+    if (j < br.length) next = Math.min(next, Math.max(port, br[j].first));
+    port = next;
+    let sa = '';
+    let sb = '';
+    let last = MAX_PORT;
+    if (i < ar.length) {
+      if (ar[i].first <= port) {
+        sa = ar[i].status;
+        last = Math.min(last, ar[i].last);
+      } else {
+        last = Math.min(last, ar[i].first - 1);
+      }
+    }
+    if (j < br.length) {
+      if (br[j].first <= port) {
+        sb = br[j].status;
+        last = Math.min(last, br[j].last);
+      } else {
+        last = Math.min(last, br[j].first - 1);
+      }
+    }
+    const change = compareStatus(sa, sb);
+    counts[change] += last - port + 1;
+    const r = ranges[ranges.length - 1];
+    if (r && r.last + 1 === port && r.change === change) r.last = last;
+    else ranges.push({ first: port, last, change });
+    if (change === 'opened' || change === 'closed' || change === 'reason_changed') {
+      const c = changes[changes.length - 1];
+      if (c && c.last + 1 === port && c.a === sa && c.b === sb) c.last = last;
+      else changes.push({ first: port, last, a: sa, b: sb });
+    }
+    port = last + 1;
+  }
+  const out = {
+    kind: key,
+    a_kind: a?.kind ?? '',
+    b_kind: b?.kind ?? '',
+    a_address: a?.address ?? '',
+    b_address: b?.address ?? '',
+    compared: counts.unchanged + counts.opened + counts.closed + counts.reason_changed,
+    unchanged: counts.unchanged,
+    opened: counts.opened,
+    closed: counts.closed,
+    reason_changed: counts.reason_changed,
+    only_a: counts.only_a,
+    only_b: counts.only_b,
+    a_open: open(ar),
+    b_open: open(br),
+  };
+  if (a?.open_rtt_ms) out.a_open_rtt_ms = a.open_rtt_ms;
+  if (b?.open_rtt_ms) out.b_open_rtt_ms = b.open_rtt_ms;
+  return { ...out, changes, ranges };
+}
+
+// compareStatus returns how status a compares with status b, either of
+// which is '' for a port without a result in that run.
+function compareStatus(a, b) {
+  if (b === '') return 'only_a';
+  if (a === '') return 'only_b';
+  if (a === b) return 'unchanged';
+  if (b === 'open') return 'opened';
+  if (a === 'open') return 'closed';
+  // closed in both, and how is only known for one
+  if (a === 'closed' || b === 'closed') return 'unchanged';
+  return 'reason_changed';
+}
+
+// changed counts the ports whose status changed in a kind's diff.
+export function changed(k) {
+  return k.opened + k.closed + k.reason_changed;
 }

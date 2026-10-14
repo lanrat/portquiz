@@ -10,15 +10,26 @@ import (
 // quickly its open ports answered, and its results as ranges of consecutive
 // ports with the same status.
 type Report struct {
-	Version   string        `json:"version,omitempty"`
-	Host      string        `json:"host"`
-	Started   time.Time     `json:"started"`
-	Finished  time.Time     `json:"finished"`
-	Seconds   float64       `json:"duration_seconds"`
-	PerSecond float64       `json:"tested_per_second"`
-	Canceled  bool          `json:"canceled"`
-	Options   ReportOptions `json:"options"`
-	Kinds     []KindReport  `json:"kinds"`
+	Version string `json:"version,omitempty"`
+	// Client is the client that ran the scan: "cli", "android" or
+	// "browser".
+	Client string `json:"client,omitempty"`
+	// ClientAddress is the client's address as the server saw it, when the
+	// client knows it; only the browser page does.
+	ClientAddress string `json:"client_address,omitempty"`
+	// Label is the user's name for the run, such as "home wifi".
+	Label string `json:"label,omitempty"`
+	// TCPRequests is how the browser page tested TCP ports: "http" or
+	// "https" requests.
+	TCPRequests string        `json:"tcp_requests,omitempty"`
+	Host        string        `json:"host"`
+	Started     time.Time     `json:"started"`
+	Finished    time.Time     `json:"finished"`
+	Seconds     float64       `json:"duration_seconds"`
+	PerSecond   float64       `json:"tested_per_second"`
+	Canceled    bool          `json:"canceled"`
+	Options     ReportOptions `json:"options"`
+	Kinds       []KindReport  `json:"kinds"`
 }
 
 // ReportOptions are the options a scan ran with.

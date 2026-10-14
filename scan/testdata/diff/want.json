@@ -1,0 +1,200 @@
+{
+  "a": {
+    "host": "portquiz.example.com",
+    "label": "home wifi",
+    "client": "browser",
+    "client_address": "198.51.100.7",
+    "tcp_requests": "http",
+    "version": "v1.11.0",
+    "started": "2026-10-13T09:30:00Z",
+    "finished": "2026-10-13T09:31:00Z",
+    "canceled": false
+  },
+  "b": {
+    "host": "portquiz.example.com",
+    "client": "cli",
+    "version": "v1.12.0",
+    "started": "2026-10-14T10:00:00Z",
+    "finished": "2026-10-14T10:02:00Z",
+    "canceled": true
+  },
+  "kinds": [
+    {
+      "kind": "tcp4",
+      "a_kind": "tcp",
+      "b_kind": "tcp4",
+      "a_address": "192.0.2.10",
+      "b_address": "192.0.2.10",
+      "compared": 39,
+      "unchanged": 18,
+      "opened": 5,
+      "closed": 10,
+      "reason_changed": 6,
+      "only_a": 0,
+      "only_b": 11,
+      "a_open": 20,
+      "b_open": 15,
+      "a_open_rtt_ms": {
+        "min": 10,
+        "median": 12,
+        "p95": 20,
+        "max": 25
+      },
+      "b_open_rtt_ms": {
+        "min": 11,
+        "median": 14,
+        "p95": 30,
+        "max": 31
+      },
+      "changes": [
+        {
+          "first": 6,
+          "last": 10,
+          "a": "open",
+          "b": "dropped"
+        },
+        {
+          "first": 11,
+          "last": 12,
+          "a": "rejected",
+          "b": "dropped"
+        },
+        {
+          "first": 22,
+          "last": 25,
+          "a": "dropped",
+          "b": "rejected"
+        },
+        {
+          "first": 26,
+          "last": 30,
+          "a": "dropped",
+          "b": "open"
+        },
+        {
+          "first": 36,
+          "last": 40,
+          "a": "open",
+          "b": "interfered"
+        }
+      ],
+      "ranges": [
+        {
+          "first": 1,
+          "last": 5,
+          "change": "unchanged"
+        },
+        {
+          "first": 6,
+          "last": 10,
+          "change": "closed"
+        },
+        {
+          "first": 11,
+          "last": 12,
+          "change": "reason_changed"
+        },
+        {
+          "first": 13,
+          "last": 20,
+          "change": "unchanged"
+        },
+        {
+          "first": 21,
+          "last": 21,
+          "change": "only_b"
+        },
+        {
+          "first": 22,
+          "last": 25,
+          "change": "reason_changed"
+        },
+        {
+          "first": 26,
+          "last": 30,
+          "change": "opened"
+        },
+        {
+          "first": 31,
+          "last": 35,
+          "change": "unchanged"
+        },
+        {
+          "first": 36,
+          "last": 40,
+          "change": "closed"
+        },
+        {
+          "first": 41,
+          "last": 50,
+          "change": "only_b"
+        }
+      ]
+    },
+    {
+      "kind": "tcp6",
+      "a_kind": "",
+      "b_kind": "tcp6",
+      "a_address": "",
+      "b_address": "2001:db8::10",
+      "compared": 0,
+      "unchanged": 0,
+      "opened": 0,
+      "closed": 0,
+      "reason_changed": 0,
+      "only_a": 0,
+      "only_b": 3,
+      "a_open": 0,
+      "b_open": 3,
+      "changes": [],
+      "ranges": [
+        {
+          "first": 1,
+          "last": 3,
+          "change": "only_b"
+        }
+      ]
+    },
+    {
+      "kind": "udp4",
+      "a_kind": "udp",
+      "b_kind": "udp4",
+      "a_address": "192.0.2.10",
+      "b_address": "192.0.2.10",
+      "compared": 12,
+      "unchanged": 9,
+      "opened": 0,
+      "closed": 3,
+      "reason_changed": 0,
+      "only_a": 0,
+      "only_b": 0,
+      "a_open": 8,
+      "b_open": 5,
+      "changes": [
+        {
+          "first": 6,
+          "last": 8,
+          "a": "open",
+          "b": "rejected"
+        }
+      ],
+      "ranges": [
+        {
+          "first": 1,
+          "last": 5,
+          "change": "unchanged"
+        },
+        {
+          "first": 6,
+          "last": 8,
+          "change": "closed"
+        },
+        {
+          "first": 9,
+          "last": 12,
+          "change": "unchanged"
+        }
+      ]
+    }
+  ]
+}
