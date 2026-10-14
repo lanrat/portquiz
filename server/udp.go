@@ -1,9 +1,8 @@
 // Package main provides UDP server functionality for the portquiz server.
-// It handles incoming UDP packets and responds with the magic string when detected.
+// It handles incoming UDP packets and answers the ones that are exactly the password.
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"log"
@@ -18,7 +17,7 @@ const udpReadBuffer = 4 << 20
 
 // udpServer starts a UDP server on the specified address and handles incoming packets.
 // Several goroutines read from the same socket so replies keep up with fast clients,
-// and each responds to packets containing the magic string.
+// and each answers packets that are exactly the password.
 func udpServer(ctx context.Context, listenAddr string) error {
 	log.Printf("starting UDP server on %s", listenAddr)
 	addr, err := net.ResolveUDPAddr("udp", listenAddr)
@@ -75,11 +74,11 @@ func udpRead(l *net.UDPConn, web bool) {
 		if *verbose {
 			log.Printf("[UDP] data from [%s] len: %d, data: %s", remoteAddr, n, buffer[:n])
 		}
-		if bytes.HasPrefix(buffer[:n], magicStringBytes) {
+		if reply, ok := probeReply(buffer[:n]); ok {
 			if *verbose {
 				log.Printf("[UDP] PORTQUIZ from %s", remoteAddr)
 			}
-			_, err = l.WriteToUDP(buffer[:n], remoteAddr)
+			_, err = l.WriteToUDP(reply, remoteAddr)
 			if err != nil && *verbose {
 				log.Printf("UDP write error to [%s]: %s", remoteAddr, err)
 			}

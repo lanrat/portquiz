@@ -369,8 +369,8 @@ The summary at the end matches the Android app's, and Save JSON saves the result
 ## How It Works
 
 1. **Server Setup**: The server listens on a single port and uses iptables DNAT rules to redirect traffic from all ports to this listening port
-2. **Client Testing**: The client attempts to connect to each port and sends a magic string
-3. **Response Validation**: The server responds with the same magic string if the connection is successful
+2. **Client Testing**: The client attempts to connect to each port and sends a probe: the password (`-password`, `portquiz` by default), a zero byte and a random tag, so no two probes are alike
+3. **Response Validation**: The server sends the probe back only if the password matches exactly, so the client can tell the answer is from the server and is to that probe. Clients from before tags send the bare password, which the server answers with the password, and newer clients accept that answer from servers from before tags
 4. **Protocol Detection**: Can detect DPI firewalls that block connections based on protocol patterns
 
 ## Troubleshooting

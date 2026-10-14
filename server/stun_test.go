@@ -147,3 +147,15 @@ func TestUDPWebDisabled(t *testing.T) {
 		t.Errorf("password: got %q", got)
 	}
 }
+
+func TestUDPPasswordMustMatchExactly(t *testing.T) {
+	c := startUDP(t, true)
+	for _, wrong := range []string{"portquiz123", "port", "portquiz\n", "xportquiz"} {
+		if got := roundTrip(t, c, []byte(wrong)); got != nil {
+			t.Errorf("%q: got %q, want no answer", wrong, got)
+		}
+	}
+	if got := roundTrip(t, c, []byte("portquiz")); string(got) != "portquiz" {
+		t.Errorf("right password: got %q", got)
+	}
+}

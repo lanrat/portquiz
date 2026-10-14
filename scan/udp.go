@@ -1,7 +1,6 @@
 package scan
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,7 +9,7 @@ import (
 	"time"
 )
 
-// checkUDP tests a single UDP port once: it sends the magic string and waits
+// checkUDP tests a single UDP port once: it sends a probe with the password and waits
 // for the server to send it back. Each check uses its own connected socket so
 // that an ICMP port unreachable from a rejecting firewall is reported at once
 // as refused; an unconnected socket shared by all checks never sees those, so
@@ -31,7 +30,8 @@ func (t *target) checkUDP(ctx context.Context, port int, timeout time.Duration) 
 	if err := conn.SetDeadline(start.Add(timeout)); err != nil {
 		t.opts.logf("%s %d SetDeadline warning: %s", network, port, err)
 	}
-	if _, err := conn.Write(t.magic); err != nil {
+	probe := newProbe(t.magic)
+	if _, err := conn.Write(probe); err != nil {
 		t.opts.logf("%s %d write error: %s", network, port, err)
 		if refusal(err) {
 			return outcomeRefused, 0
@@ -50,7 +50,7 @@ func (t *target) checkUDP(ctx context.Context, port int, timeout time.Duration) 
 	case err != nil:
 		t.opts.logf("%s %d read error: %s", network, port, err)
 		return outcomeError, 0
-	case !bytes.HasPrefix(buffer[:n], t.magic):
+	case !isAnswer(buffer[:n], probe, t.magic):
 		t.opts.logf("%s %d unexpected reply: %q", network, port, buffer[:n])
 		return outcomeInterfered, 0
 	}

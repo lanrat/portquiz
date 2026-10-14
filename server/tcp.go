@@ -1,9 +1,8 @@
 // Package main provides TCP server functionality for the portquiz server.
-// It handles incoming TCP connections and responds with the magic string when detected.
+// It handles incoming TCP connections and answers the ones that send exactly the password.
 package main
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"log"
@@ -87,9 +86,9 @@ func handleTCPConnection(c *net.TCPConn, web bool) {
 		log.Printf("Serving %s %s\n", kind, c.RemoteAddr())
 	}
 
-	buffer := make([]byte, 128)
+	buffer := make([]byte, max(128, len(magicStringBytes)+2+probeTagLen))
 
-	n, err := c.Read(buffer)
+	n, err := readStart(c, buffer)
 	if err != nil {
 		if *verbose {
 			log.Printf("TCP Read Error from %s: %s", c.RemoteAddr(), err)
@@ -99,11 +98,11 @@ func handleTCPConnection(c *net.TCPConn, web bool) {
 	if *verbose {
 		log.Printf("[%s], Got data from [%s]: %s", kind, c.RemoteAddr(), buffer[:n])
 	}
-	if bytes.HasPrefix(buffer[:n], magicStringBytes) {
+	if reply, ok := probeReply(buffer[:n]); ok {
 		if *verbose {
 			log.Printf("[%s] PORTQUIZ from %s", kind, c.RemoteAddr())
 		}
-		_, err := c.Write(magicStringBytes)
+		_, err := c.Write(reply)
 		if err != nil {
 			if *verbose {
 				log.Printf("TCP Write Error from %s: %s", c.RemoteAddr(), err)
@@ -134,4 +133,17 @@ func handleTCPConnection(c *net.TCPConn, web bool) {
 		handedOff = true
 		serveTLS(c, buffer[:n])
 	}
+}
+
+// readStart reads the start of a connection into buf: at least one read,
+// and more while what has arrived is the start of a probe, so a probe split
+// across packets is still recognized.
+func readStart(c net.Conn, buf []byte) (int, error) {
+	n, err := c.Read(buf)
+	for err == nil && n < len(buf) && isPartialProbe(buf[:n]) {
+		var m int
+		m, err = c.Read(buf[n:])
+		n += m
+	}
+	return n, err
 }

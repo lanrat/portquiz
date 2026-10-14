@@ -1,7 +1,6 @@
 package scan
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"net"
@@ -11,8 +10,8 @@ import (
 	"time"
 )
 
-// checkTCP tests a single TCP port once: it connects, sends the magic string,
-// and waits for the server to send it back. It returns the outcome and, for an
+// checkTCP tests a single TCP port once: it connects, sends a probe with the
+// password, and waits for the server to send it back. It returns the outcome and, for an
 // open port, the slower of the connection and the reply, each of which takes
 // about one round trip.
 func (t *target) checkTCP(ctx context.Context, port int, timeout time.Duration) (outcome, time.Duration) {
@@ -54,25 +53,34 @@ func (t *target) checkTCP(ctx context.Context, port int, timeout time.Duration) 
 
 	// the connection was accepted, so from here on any failure means that
 	// something other than the server answered or cut the connection
-	if _, err := conn.Write(t.magic); err != nil {
+	probe := newProbe(t.magic)
+	if _, err := conn.Write(probe); err != nil {
 		t.opts.logf("%s %d write error: %s", t.kind, port, err)
 		return outcomeInterfered, 0
 	}
 
-	buffer := make([]byte, 128)
-	n, err := conn.Read(buffer)
-	if err != nil {
-		t.opts.logf("%s %d read error: %s", t.kind, port, err)
-		switch {
-		case ctx.Err() != nil:
-			return outcomeError, 0
-		case os.IsTimeout(err):
-			return outcomeSilent, 0
-		default:
-			return outcomeInterfered, 0
+	buffer := make([]byte, len(probe)+64)
+	n := 0
+	for {
+		m, err := conn.Read(buffer[n:])
+		n += m
+		if err == nil && isPartialAnswer(buffer[:n], probe, t.magic) {
+			continue
 		}
-	}
-	if !bytes.HasPrefix(buffer[:n], t.magic) {
+		if isAnswer(buffer[:n], probe, t.magic) {
+			break
+		}
+		if err != nil {
+			t.opts.logf("%s %d read error: %s", t.kind, port, err)
+			switch {
+			case ctx.Err() != nil:
+				return outcomeError, 0
+			case os.IsTimeout(err):
+				return outcomeSilent, 0
+			default:
+				return outcomeInterfered, 0
+			}
+		}
 		t.opts.logf("%s %d unexpected reply: %q", t.kind, port, buffer[:n])
 		return outcomeInterfered, 0
 	}

@@ -347,3 +347,49 @@ func TestHTTPSLinkToPlainPageStaysHTTP(t *testing.T) {
 		t.Errorf("HTTP ?http: %d", res.StatusCode)
 	}
 }
+
+func TestTCPPasswordMustMatchExactly(t *testing.T) {
+	addr := startServer(t)
+	for _, wrong := range []string{"portquiz123", "xportquiz"} {
+		if got := exchange(t, addr, wrong); got != "" {
+			t.Errorf("%q: got %q, want no answer", wrong, got)
+		}
+	}
+	if got := exchange(t, addr, "portquiz"); got != "portquiz" {
+		t.Errorf("right password: got %q", got)
+	}
+}
+
+func TestTCPPasswordSplitAcrossPackets(t *testing.T) {
+	addr := startServer(t)
+	c, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	_ = c.SetDeadline(time.Now().Add(5 * time.Second))
+	_, _ = io.WriteString(c, "port")
+	time.Sleep(50 * time.Millisecond)
+	_, _ = io.WriteString(c, "quiz")
+	buf := make([]byte, 64)
+	n, _ := io.ReadAtLeast(c, buf, len("portquiz"))
+	if string(buf[:n]) != "portquiz" {
+		t.Errorf("got %q", buf[:n])
+	}
+}
+
+func TestTCPPasswordCutShort(t *testing.T) {
+	addr := startServer(t)
+	c, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = io.WriteString(c, "port")
+	_ = c.(*net.TCPConn).CloseWrite()
+	_ = c.SetDeadline(time.Now().Add(5 * time.Second))
+	got, _ := io.ReadAll(c)
+	_ = c.Close()
+	if len(got) != 0 {
+		t.Errorf("got %q, want no answer", got)
+	}
+}
