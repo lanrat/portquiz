@@ -118,6 +118,10 @@ class ScanService : Service() {
             val report = summary.report.takeIf { it.isNotEmpty() }?.let {
                 runCatching { ScanReport.parse(it) }.getOrNull()
             }
+            // keep it to compare with other runs, unless nothing was tested
+            if (report != null && report.tested > 0) {
+                runCatching { RunHistory.of(this@ScanService).add(summary.report, report) }
+            }
             main.post {
                 finish(summary.canceled, summary.missed, summary.error.ifEmpty { null }, report)
             }

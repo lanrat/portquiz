@@ -32,6 +32,18 @@
             android:label="@string/summary"
             android:parentActivityName=".MainActivity" />
 
+        <activity
+            android:name=".HistoryActivity"
+            android:exported="false"
+            android:label="@string/history_title"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".CompareActivity"
+            android:exported="false"
+            android:label="@string/compare_title"
+            android:parentActivityName=".HistoryActivity" />
+
         <!-- serves shared reports to the app they are shared with -->
         <provider
             android:name=".ReportProvider"

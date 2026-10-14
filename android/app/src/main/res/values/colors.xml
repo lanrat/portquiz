@@ -10,4 +10,7 @@
     <color name="map_interfered">#E87BA4</color>
     <color name="map_error">#EDA100</color>
     <color name="map_track">#E6E6E3</color>
+    <!-- comparison map: how ports changed between two runs -->
+    <color name="map_unchanged">#A9A8A2</color>
+    <color name="map_not_compared">#CFCEC8</color>
 </resources>

@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class ScanReportTest {
     /** A report as the Go library writes it, for a dual stack TCP scan of ports 1 to 30. */
@@ -143,5 +144,22 @@ class ScanReportTest {
         val keys = ScanReport.SERVICES.map { it.port to it.protocol }
         assertEquals(keys.size, keys.toSet().size)
         assertTrue(ScanReport.SERVICES.all { it.port in 1..65535 && it.protocol in setOf("tcp", "udp") })
+    }
+
+    @Test
+    fun readsTheBrowserPageReports() {
+        val r = ScanReport.parse(File("../../scan/testdata/diff/a.json").readText())
+        assertEquals("browser", r.client)
+        assertEquals("home wifi", r.label)
+        assertEquals("198.51.100.7", r.clientAddress)
+        assertEquals("http", r.tcpRequests)
+        assertEquals("2026-10-13T09:30:00.000Z", r.started)
+        val tcp = r.kinds[0]
+        // the port the browser refused has no result
+        assertEquals(39, tcp.tested)
+        assertNull(tcp.statusOf(21))
+        assertEquals(PortStatus.DROPPED, tcp.statusOf(22))
+        assertTrue(r.sameRun(ScanReport.parse(File("../../scan/testdata/diff/a.json").readText())))
+        assertFalse(r.sameRun(ScanReport.parse(File("../../scan/testdata/diff/b.json").readText())))
     }
 }

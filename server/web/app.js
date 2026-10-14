@@ -742,6 +742,11 @@ function updateHistory(change) {
   renderComparison();
 }
 
+// startedTime returns when a report's run started, for ordering runs.
+function startedTime(report) {
+  return new Date(report.started).getTime() || 0;
+}
+
 function newID() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
@@ -775,7 +780,7 @@ async function importFiles() {
   showError(errors.join('. '));
   if (added.length > 0) {
     // the oldest first, so the list stays in the order they ran
-    added.sort((a, b) => String(a.started).localeCompare(String(b.started)));
+    added.sort((a, b) => startedTime(a) - startedTime(b));
     updateHistory((list) => [...added.reverse().map((report) => ({ id: newID(), added: Date.now(), report })), ...list]);
   }
 }
@@ -896,7 +901,7 @@ function rename(entry, actions) {
 function compareSelected() {
   const runs = history.filter((e) => selected.has(e.id));
   if (runs.length !== 2) return;
-  runs.sort((x, y) => String(x.report.started).localeCompare(String(y.report.started)));
+  runs.sort((x, y) => startedTime(x.report) - startedTime(y.report));
   compared = runs.map((e) => e.id);
   renderComparison();
   $('comparison').scrollIntoView({ behavior: 'smooth', block: 'start' });

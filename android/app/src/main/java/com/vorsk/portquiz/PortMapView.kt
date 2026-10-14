@@ -10,37 +10,51 @@ import android.view.View
 import kotlin.math.max
 import kotlin.math.min
 
+/** A run of ports with the same value, the index of one of a map's colors. */
+data class MapRange(val first: Int, val last: Int, val value: Int)
+
 /**
  * A strip showing one kind's results across a span of ports: each column
  * covers a run of ports and is split from the bottom up in proportion to how
  * many of them had each status, so blocked ranges stand out. Any status
  * present in a column gets at least a sliver, so lone open ports stay
  * visible. Touching it reports the ports under the finger to [onInspect].
+ * It can also show other values than statuses, such as how ports changed
+ * between two runs.
  */
 class PortMapView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
 
-    /** Counts per column of ports with each status, in [PortStatus] order. */
+    /** Counts per column of ports with each value. */
     private var columns: Array<IntArray> = emptyArray()
-    private var kind: KindReport? = null
+    private var ranges: List<MapRange>? = null
+    private var paints: List<Paint> = emptyList()
     private var firstPort = 1
     private var lastPort = 1
 
-    /** Receives the ports under a touch, and null when the touch ends. */
+    /** Receives the ports under a touch, with the count of each value. */
     var onInspect: ((first: Int, last: Int, counts: IntArray) -> Unit)? = null
 
-    private val paints = PortStatus.entries.map { status ->
-        Paint().apply { color = context.getColor(statusColor(status)) }
-    }
     private val track = Paint().apply { color = context.getColor(R.color.map_track) }
     private val columnWidth = resources.displayMetrics.density * 2
     private val minSliver = resources.displayMetrics.density * 3
 
-    /** Shows kind's results from port first to last. */
-    fun show(kind: KindReport, first: Int, last: Int) {
-        this.kind = kind
+    /** Shows kind's results from port first to last, with counts in [PortStatus] order. */
+    fun show(kind: KindReport, first: Int, last: Int) = show(
+        kind.ranges.map { MapRange(it.first, it.last, it.status.ordinal) },
+        PortStatus.entries.map { statusColor(it) },
+        first, last,
+    )
+
+    /**
+     * Shows ranges from port first to last, each value drawn in the color
+     * with that index in colors, from the bottom up.
+     */
+    fun show(ranges: List<MapRange>, colors: List<Int>, first: Int, last: Int) {
+        this.ranges = ranges
+        paints = colors.map { Paint().apply { color = context.getColor(it) } }
         firstPort = first
         lastPort = last
         columns = emptyArray()
@@ -65,18 +79,18 @@ class PortMapView @JvmOverloads constructor(
         firstPort + ((lastPort - firstPort + 1).toLong() * i / count).toInt()
 
     private fun buildColumns() {
-        val k = kind ?: return
+        val rs = ranges ?: return
         val count = max(1, min((width / columnWidth).toInt(), lastPort - firstPort + 1))
-        val cols = Array(count) { IntArray(PortStatus.entries.size) }
+        val cols = Array(count) { IntArray(paints.size) }
         var col = 0
-        for (r in k.ranges) {
+        for (r in rs) {
             var port = max(r.first, firstPort)
             val end = min(r.last, lastPort)
             while (port <= end) {
                 while (col + 1 < count && columnStart(col + 1, count) <= port) col++
                 val colEnd = if (col + 1 < count) columnStart(col + 1, count) - 1 else lastPort
                 val upTo = min(end, colEnd)
-                cols[col][r.status.ordinal] += upTo - port + 1
+                cols[col][r.value] += upTo - port + 1
                 port = upTo + 1
             }
         }
@@ -84,7 +98,7 @@ class PortMapView @JvmOverloads constructor(
     }
 
     override fun onDraw(canvas: Canvas) {
-        if (kind == null || width == 0) return
+        if (ranges == null || width == 0) return
         if (columns.isEmpty()) buildColumns()
         val h = height.toFloat()
         canvas.drawRect(0f, 0f, width.toFloat(), h, track)
@@ -94,11 +108,10 @@ class PortMapView @JvmOverloads constructor(
             if (size <= 0) continue
             val heights = segmentHeights(counts, size, h, minSliver)
             var bottom = h
-            for (status in PortStatus.entries) {
-                val segment = heights[status.ordinal]
+            for ((value, segment) in heights.withIndex()) {
                 if (segment <= 0f) continue
                 val top = bottom - segment
-                canvas.drawRect(i * colW, top, (i + 1) * colW, bottom, paints[status.ordinal])
+                canvas.drawRect(i * colW, top, (i + 1) * colW, bottom, paints[value])
                 bottom = top
             }
         }
@@ -131,6 +144,15 @@ class PortMapView @JvmOverloads constructor(
             PortStatus.DROPPED -> R.color.map_dropped
             PortStatus.INTERFERED -> R.color.map_interfered
             PortStatus.ERROR -> R.color.map_error
+        }
+
+        /** The color for a change on a comparison's map and its legend. */
+        fun changeColor(change: Change): Int = when (change) {
+            Change.OPENED -> R.color.map_open
+            Change.CLOSED -> R.color.map_rejected
+            Change.REASON_CHANGED -> R.color.map_dropped
+            Change.UNCHANGED -> R.color.map_unchanged
+            Change.ONLY_A, Change.ONLY_B -> R.color.map_not_compared
         }
     }
 }

@@ -30,6 +30,8 @@ When a scan finishes, Summary next to the filter opens a summary of it:
 
 Save JSON saves the scan's report, the same as the command line client's `-json`, and Share sends it as a JSON file to another app, such as email or a messaging app.
 
+Past runs, at the top, lists the last 20 finished scans, kept on the phone. Tap a run for its summary, use ⋮ to name it (such as "home wifi") or delete it, and Import adds JSON reports from any portquiz client, such as the command line client's `-json` or the browser test page's Save JSON. Check two runs and tap Compare to see what changed between them, the earlier one as A: for each protocol and IP version, how many ports opened, closed, or closed differently (such as rejected in A and dropped in B), a map of the changes, and the changed ports with the services on them. Swap A and B reverses the comparison, and Save JSON and Share give it in the same format as the command line client's `-diff` with `-json`.
+
 Advanced settings, under Advanced, match the command line client's options and defaults: the timeout in milliseconds and whether it adapts to how quickly open ports respond (`-timeout`, `-adaptive`), connections started per second with 0 for no limit (`-rate`), retries for ports that do not respond, blank for the default (`-retry`), and how many ports are tested at once (`-parallel`). Reset to defaults restores them, and a blank field uses its default.
 
 ## Build
@@ -53,7 +55,7 @@ Gradle builds the Go library first with `gomobile/bind.sh`, which builds `gomobi
 Layout:
 
 - `gomobile/`: Go module that adapts the `scan` package for gomobile
-- `app/`: the Kotlin app; `ScanService` runs scans as a foreground service, `MainActivity` is the main screen and `ReportActivity` the summary of a finished scan
+- `app/`: the Kotlin app; `ScanService` runs scans as a foreground service, `MainActivity` is the main screen, `ReportActivity` the summary of a scan, `HistoryActivity` the past runs kept by `RunHistory`, and `CompareActivity` the comparison of two runs
 
 ## Release signing
 

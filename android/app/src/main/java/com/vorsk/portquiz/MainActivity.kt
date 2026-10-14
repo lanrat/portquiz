@@ -125,6 +125,7 @@ class MainActivity : Activity() {
         applyInsets(findViewById(R.id.root))
 
         findViewById<TextView>(R.id.version).text = BuildConfig.VERSION_NAME
+        findViewById<View>(R.id.history).setOnClickListener { startActivity(Intent(this, HistoryActivity::class.java)) }
         findViewById<View>(R.id.github).setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.github_url))))
         }

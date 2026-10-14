@@ -108,6 +108,17 @@ data class Service(val name: String, val port: Int, val protocol: String)
 /** A scan's report, as the Go library writes it, and what the summary derives from it. */
 data class ScanReport(
     val host: String,
+    /** When the scan started and finished, as written in the report. */
+    val started: String,
+    val finished: String,
+    /** The user's name for the run, or "". */
+    val label: String,
+    /** The client that ran the scan: "cli", "android", "browser", or "" for older reports. */
+    val client: String,
+    /** The client's address as the server saw it, when known, else "". */
+    val clientAddress: String,
+    /** For the browser page, "http" or "https": how it tested TCP ports. */
+    val tcpRequests: String,
     val seconds: Double,
     val perSecond: Double,
     val canceled: Boolean,
@@ -118,6 +129,10 @@ data class ScanReport(
     val json: String,
 ) {
     val tested get() = kinds.sumOf { it.tested }
+
+    /** Whether other is a report of the same run, such as the same file imported twice. */
+    fun sameRun(other: ScanReport) =
+        started == other.started && finished == other.finished && host == other.host && client == other.client
     val untested get() = kinds.sumOf { it.untested }
 
     /**
@@ -200,25 +215,37 @@ data class ScanReport(
             val o = JSONObject(json)
             val options = o.optJSONObject("options") ?: JSONObject()
             val kinds = o.optJSONArray("kinds")
+            val browser = o.optString("client") == "browser"
             return ScanReport(
                 host = o.optString("host"),
+                started = o.optString("started"),
+                finished = o.optString("finished"),
+                label = o.optString("label"),
+                client = o.optString("client"),
+                clientAddress = o.optString("client_address"),
+                tcpRequests = o.optString("tcp_requests"),
                 seconds = o.optDouble("duration_seconds", 0.0),
                 perSecond = o.optDouble("tested_per_second", 0.0),
                 canceled = o.optBoolean("canceled"),
                 timeoutMillis = options.optLong("timeout_ms"),
                 adaptive = options.optBoolean("adaptive"),
-                kinds = (0 until (kinds?.length() ?: 0)).map { parseKind(kinds!!.getJSONObject(it)) },
+                kinds = (0 until (kinds?.length() ?: 0)).map { parseKind(kinds!!.getJSONObject(it), browser) },
                 json = json,
             )
         }
 
-        private fun parseKind(k: JSONObject): KindReport {
+        /**
+         * Parses a kind. The browser page's reports also list the ports
+         * the browser refused to test, which have no result, so they are
+         * left out.
+         */
+        private fun parseKind(k: JSONObject, browser: Boolean): KindReport {
             val rtt = k.optJSONObject("open_rtt_ms")
             val ranges = k.optJSONArray("ranges")
             return KindReport(
                 kind = k.optString("kind"),
                 address = k.optString("address"),
-                tested = k.optInt("tested"),
+                tested = k.optInt("tested") - if (browser) k.optInt("browser_blocked") else 0,
                 untested = k.optInt("untested"),
                 open = k.optInt("open"),
                 rejected = k.optInt("rejected"),
@@ -231,10 +258,9 @@ data class ScanReport(
                 responseTimes = rtt?.let {
                     ResponseTimes(it.optDouble("min"), it.optDouble("median"), it.optDouble("p95"), it.optDouble("max"))
                 },
-                ranges = (0 until (ranges?.length() ?: 0)).map {
-                    val r = ranges!!.getJSONObject(it)
-                    PortRange(r.getInt("first"), r.getInt("last"), PortStatus.of(r.getString("status")))
-                },
+                ranges = (0 until (ranges?.length() ?: 0)).map { ranges!!.getJSONObject(it) }
+                    .filter { it.getString("status") != "browser" }
+                    .map { PortRange(it.getInt("first"), it.getInt("last"), PortStatus.of(it.getString("status"))) },
             )
         }
     }

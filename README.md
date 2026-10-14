@@ -208,10 +208,14 @@ Usage of ./portquiz:
         shorten the timeout to fit the measured response time of open ports, up to -timeout (default true)
   -closed
         print only closed ports
+  -diff
+        compare two JSON reports instead of testing: portquiz -diff a.json b.json lists the ports whose result changed from a to b, and exits with status 1 if any did; with -json it writes the comparison as JSON
   -format string
         output format: "ranges" merges consecutive ports with the same result, "ports" prints one line per port (default "ranges")
   -json file
         when testing finishes, write a JSON report of every result to file, or to stdout with - instead of the usual results
+  -label string
+        a name for this run recorded in the -json report, such as "home wifi", to tell runs apart when comparing them
   -multi uint
         test multiple times to ensure larger streams work (default 1)
   -no-progress
@@ -271,7 +275,9 @@ A closed port is reported in one of four ways, shown in the summary at the end o
 
 ```json
 {
-  "version": "v1.6.0",
+  "version": "v1.12.0",
+  "client": "cli",
+  "label": "home wifi",
   "host": "portquiz.example.com",
   "started": "2026-10-13T09:00:00.000-07:00",
   "finished": "2026-10-13T09:03:10.000-07:00",
@@ -296,7 +302,30 @@ A closed port is reported in one of four ways, shown in the summary at the end o
 }
 ```
 
-`untested` counts the ports left when a scan is stopped early, `late` the open ports found only by a recheck with the full timeout (see below), and `options.retries` is -1 for the default.
+`client` is the client that ran the scan (`cli`, `android` or `browser`), `label` the name given with `-label`, if any, `untested` counts the ports left when a scan is stopped early, `late` the open ports found only by a recheck with the full timeout (see below), and `options.retries` is -1 for the default.
+
+### Comparing runs
+
+`-diff` compares two JSON reports, such as the same network before and after a firewall change, or two networks, and lists the ports whose result changed from the first to the second. Reports from any client can be compared, including the Android app's and the browser page's. Kinds are matched by protocol and IP version, so `tcp` tested over IPv4 in one report is compared with `tcp4` in the other:
+
+```shell
+$ ./portquiz -json home.json -label "home wifi" portquiz.example.com
+$ ./portquiz -json office.json -label office portquiz.example.com
+$ ./portquiz -diff home.json office.json
+A: portquiz.example.com, 2026-10-13 09:30, cli, "home wifi"
+B: portquiz.example.com, 2026-10-14 10:00, cli, "office"
+tcp: 2 opened, 340 closed, 1 changed reason, 65192 unchanged
+  22 dropped -> open
+  25 rejected -> interfered
+  443 dropped -> open
+  8000-8339 open -> dropped
+```
+
+A port is **opened** if it was closed in the first report and open in the second, **closed** if the reverse, and **changed reason** if it was closed in both but differently, such as rejected and then dropped. Ports tested in only one of the reports are counted as not compared, and a kind tested in only one is shown as `only in A` or `only in B`. The browser page cannot tell how a UDP port was closed, so its closed UDP ports only count as changed when they open.
+
+The exit status is 0 if no port changed, 1 if some did and 2 on errors, so `-diff` can check a network against a known good report from a script. With `-json file` it also writes the comparison as JSON (`-json -` writes only the JSON, to stdout): the two runs, and per kind the counts (`opened`, `closed`, `reason_changed`, `unchanged`, `only_a`, `only_b`), the open ports and median response time of each, the changed ports as `changes` (`{"first": 8000, "last": 8339, "a": "open", "b": "dropped"}`), and every port tested in either report as `ranges` of consecutive ports with the same change, for drawing a map.
+
+The Android app and the browser page keep their last 20 runs and compare any two of them the same way, with a map of the changes. Both can import reports from any client, so a scan from a laptop can be compared with one from a phone.
 
 ### Timeouts
 
@@ -364,7 +393,9 @@ A browser cannot open raw connections, so the page tests TCP ports with web requ
 - **HTTP or HTTPS**: a page opened over `http://` tests TCP ports with plain web requests. A page opened over `https://` may only make HTTPS requests, so it tests TCP ports with encrypted requests instead. The HTTPS page tests something slightly different: whether encrypted web traffic gets through on each port. A proxy that steps into plain web requests cannot step into encrypted ones, so ports it would interfere with look open, and a network that intercepts encrypted traffic shows ports as rejected rather than interfered, unless the device trusts it. HTTPS requests also take one more round trip than plain ones. UDP is tested the same way from both.
 - **Speed**: browsers limit how many connections a page opens, so it tests 128 TCP and 32 UDP ports at once by default, sharing the 500 connections per second limit, and they slow down background tabs, so keep the tab open.
 
-The summary at the end matches the Android app's, and Save JSON saves the results in the same format as the client's [JSON report](#json-report), with `"client": "browser"`, `"tcp_requests"` saying whether TCP was tested with `http` or `https` requests, a `browser` status and a `browser_blocked` count for the ports the browser refused, and how they were detected in `browser_blocked_detection`.
+The summary at the end matches the Android app's, and Save JSON saves the results in the same format as the client's [JSON report](#json-report), with `"client": "browser"`, the address the server saw the browser connect from in `"client_address"`, `"tcp_requests"` saying whether TCP was tested with `http` or `https` requests, a `browser` status and a `browser_blocked` count for the ports the browser refused, and how they were detected in `browser_blocked_detection`.
+
+Past runs lists the last 20 runs, kept in the browser's storage on that device only; a page opened over `http://` and one opened over `https://` each keep their own. Check two to [compare them](#comparing-runs), name a run (such as "home wifi") with Rename, save its report again, or import reports saved by any portquiz client to compare with.
 
 ## How It Works
 

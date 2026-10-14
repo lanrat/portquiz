@@ -16,6 +16,7 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.concurrent.thread
 
 /**
  * The summary of the last finished scan: totals, how closed ports were
@@ -42,7 +43,9 @@ class ReportActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        report = ScanState.report ?: run {
+        val id = intent.getStringExtra(EXTRA_ID)
+        val current = ScanState.report
+        if (id == null && current == null) {
             // the process was restarted, so the scan is gone
             finish()
             return
@@ -54,6 +57,22 @@ class ReportActivity : Activity() {
         findViewById<View>(R.id.save).setOnClickListener { save() }
         findViewById<View>(R.id.share).setOnClickListener { share() }
 
+        if (id == null) {
+            show(current!!)
+            return
+        }
+        // a past run, read off the main thread
+        thread(name = "portquiz-report") {
+            val r = RunHistory.of(this).read(id)?.let { runCatching { ScanReport.parse(it) }.getOrNull() }
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                if (r == null) finish() else show(r)
+            }
+        }
+    }
+
+    private fun show(r: ScanReport) {
+        report = r
         header()
         overview()
         portMap()
@@ -64,6 +83,7 @@ class ReportActivity : Activity() {
     }
 
     private fun header() {
+        if (report.label.isNotEmpty()) text(report.label, bold = true)
         text(
             getString(
                 R.string.summary_header, report.host, numbers.format(report.tested),
@@ -305,12 +325,14 @@ class ReportActivity : Activity() {
 
     /** A file name for the report, such as portquiz-example.com-20261013-0930.json. */
     private fun fileName(): String {
-        val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.ROOT).format(Date())
+        val started = startedMillis(report.started).takeIf { it > 0 } ?: System.currentTimeMillis()
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.ROOT).format(Date(started))
         return getString(R.string.report_file_name, report.host.replace(Regex("[^A-Za-z0-9.-]"), "_"), stamp)
     }
 
     /** Lets the user choose where to save the JSON report. */
     private fun save() {
+        if (!::report.isInitialized) return
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
             .addCategory(Intent.CATEGORY_OPENABLE)
             .setType(ReportProvider.TYPE)
@@ -323,7 +345,7 @@ class ReportActivity : Activity() {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
         val uri = data?.data
-        if (requestCode != SAVE_REQUEST || resultCode != RESULT_OK || uri == null) return
+        if (requestCode != SAVE_REQUEST || resultCode != RESULT_OK || uri == null || !::report.isInitialized) return
         try {
             contentResolver.openOutputStream(uri, "wt")!!.use { it.write(report.json.toByteArray()) }
             Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
@@ -337,6 +359,7 @@ class ReportActivity : Activity() {
      * intent can carry, and Android then silently drops the share.
      */
     private fun share() {
+        if (!::report.isInitialized) return
         val uri = try {
             ReportProvider.save(this, fileName(), report.json)
         } catch (e: Exception) {
@@ -422,6 +445,8 @@ class ReportActivity : Activity() {
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics).toInt()
 
     companion object {
+        /** The id of a past run in [RunHistory] to show; without it, the last scan. */
+        const val EXTRA_ID = "id"
         private const val SAVE_REQUEST = 1
     }
 }

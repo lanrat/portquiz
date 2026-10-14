@@ -115,4 +115,67 @@
         <item>interfered</item>
         <item>errors</item>
     </string-array>
+    <!-- past runs and comparing them -->
+    <string name="history_title">Past runs</string>
+    <string name="history_button">Past runs</string>
+    <string name="import_json">Import</string>
+    <string name="compare">Compare</string>
+    <string name="history_empty">Finished scans are kept here, the last 20, to compare. You can also import JSON reports saved by any portquiz client, such as the command line client\'s -json or the browser test page.</string>
+    <string name="history_hint">The last 20 runs are kept on this phone. Check two to compare them, or tap one for its summary.</string>
+    <string name="select_run">Select %1$s to compare</string>
+    <string name="more_symbol" translatable="false">⋮</string>
+    <string name="more_actions">More actions</string>
+    <string name="rename">Rename</string>
+    <string name="delete">Delete</string>
+    <string name="rename_title">Name this run</string>
+    <string name="label_hint">e.g. home wifi</string>
+    <string name="clear_all">Clear all</string>
+    <string name="clear_confirm">Remove all past runs from this phone?</string>
+    <plurals name="imported">
+        <item quantity="one">Imported %1$d report</item>
+        <item quantity="other">Imported %1$d reports</item>
+    </plurals>
+    <string name="import_error">%1$s: %2$s</string>
+    <string name="import_duplicate">already in the list</string>
+    <string name="run_title_label">%1$s · %2$s</string>
+    <string name="run_kind">%1$s %2$s of %3$s open</string>
+    <string name="run_stopped">stopped early</string>
+    <string name="run_separator">\u0020·\u0020</string>
+    <string name="client_cli">command line</string>
+    <string name="client_android">Android</string>
+    <string name="client_browser">browser</string>
+    <string name="client_browser_scheme">browser (%1$s)</string>
+    <string name="client_from">%1$s from %2$s</string>
+    <string name="compare_title">Comparison</string>
+    <string name="swap">Swap A and B</string>
+    <string name="compare_run_a">A: %1$s · %2$s</string>
+    <string name="compare_run_b">B: %1$s · %2$s</string>
+    <string name="compare_different_hosts">These runs tested different servers: %1$s and %2$s.</string>
+    <string name="compare_browser">One run is from a browser, which cannot test the ports browsers block and tells less about how closed ports were closed, so those ports are not compared or compared as just closed.</string>
+    <string name="compare_no_changes">No port\'s result changed.</string>
+    <string name="compare_only_a">Only tested in A.</string>
+    <string name="compare_only_b">Only tested in B.</string>
+    <string name="compare_counts">%1$s opened, %2$s closed, %3$s closed differently, %4$s unchanged.</string>
+    <string name="compare_counts_partial">%1$s opened, %2$s closed, %3$s closed differently, %4$s unchanged, %5$s tested in only one run.</string>
+    <string name="compare_open">Open: %1$s in A, %2$s in B.</string>
+    <string name="compare_rtt">Median response time of open ports: %1$s in A, %2$s in B.</string>
+    <string name="compare_ms">%1$s ms</string>
+    <string name="compare_none">none</string>
+    <string name="compare_addresses">Server address: %1$s in A, %2$s in B.</string>
+    <string name="compare_services">%1$s (%2$s)</string>
+    <string name="compare_change">%1$s: %2$s → %3$s</string>
+    <string name="compare_change_size">%1$s: %2$s → %3$s · %4$s</string>
+    <string name="compare_more">…and %1$s more changed ranges, all in the saved comparison.</string>
+    <string name="compare_failed">Could not compare these runs: %1$s</string>
+    <string name="compare_saved">Comparison saved</string>
+    <string name="compare_file_name">portquiz-compare-%1$s-%2$s.json</string>
+    <!-- in Change order -->
+    <string-array name="change_names">
+        <item>opened</item>
+        <item>closed</item>
+        <item>closed differently</item>
+        <item>unchanged</item>
+        <item>only tested in A</item>
+        <item>only tested in B</item>
+    </string-array>
 </resources>
