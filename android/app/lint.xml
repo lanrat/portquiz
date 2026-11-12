@@ -13,4 +13,8 @@
     </issue>
     <!-- targetSdk is raised deliberately, see app/build.gradle.kts -->
     <issue id="OldTargetApi" severity="ignore" />
+    <!-- Dependabot handles version bumps, so a new release must not fail CI -->
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+    <issue id="GradleDependency" severity="ignore" />
+    <issue id="NewerVersionAvailable" severity="ignore" />
 </lint>
