@@ -9,21 +9,21 @@ updates:
         patterns:
           - "*"
 
+  # android/gomobile uses the root module through a replace directive, so
+  # both go.mod files must list the same versions of shared modules such as
+  # golang.org/x/sync. One entry with one group bumps both in the same PR.
+  # Most of those shared modules are indirect in android/gomobile, and
+  # Dependabot only bumps direct dependencies unless told otherwise.
   - package-ecosystem: "gomod"
-    directory: "/"
+    directories:
+      - "/"
+      - "/android/gomobile"
     schedule:
       interval: "weekly"
+    allow:
+      - dependency-type: "all"
     groups:
       go-modules:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "gomod"
-    directory: "/android/gomobile"
-    schedule:
-      interval: "weekly"
-    groups:
-      android-go-modules:
         patterns:
           - "*"
 
